@@ -1,6 +1,7 @@
 mod comm;
+mod util;
 
-use std::env;
+use std::{env, path::Path};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -18,6 +19,8 @@ fn main() {
                 
             } else if opt_lower == "startserver" {
                 comm::server::start().unwrap();
+            } else if opt_lower == "get-dir-hash" {
+                println!("{}", util::hash::get_dir_hash(Path::new("./")));
             }
         }
     }
