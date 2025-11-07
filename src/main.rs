@@ -1,4 +1,4 @@
-mod server;
+mod comm;
 
 use std::env;
 
@@ -17,7 +17,7 @@ fn main() {
                 println!("test");
                 
             } else if opt_lower == "startserver" {
-                server::server::start().unwrap();
+                comm::server::start().unwrap();
             }
         }
     }
