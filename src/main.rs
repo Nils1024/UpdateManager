@@ -1,4 +1,4 @@
-mod util;
+mod server;
 
 use std::env;
 
@@ -11,9 +11,13 @@ fn main() {
         return;
     } else {
         for option in args.iter() {
-            if option == "Test" {
+            let opt_lower = option.to_lowercase();
+
+            if opt_lower == "test" {
                 println!("test");
                 
+            } else if opt_lower == "startserver" {
+                server::server::start().unwrap();
             }
         }
     }
