@@ -1,4 +1,4 @@
-use std::{io::Write, net::{Shutdown, TcpListener, TcpStream}, thread::{self, Thread}};
+use std::{io::Write, net::{Shutdown, TcpListener, TcpStream}, thread::{self}};
 
 #[cfg(target_os = "macos")]
 fn create_pid_file() {
