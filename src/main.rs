@@ -5,7 +5,7 @@ use std::{env, path::Path};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let options: Vec<String> = Vec::new();
+    // let options: Vec<String> = Vec::new();
     
     if args.len() == 1 {
         print_help();
@@ -21,6 +21,12 @@ fn main() {
                 comm::server::start().unwrap();
             } else if opt_lower == "get-dir-hash" {
                 println!("{}", util::hash::get_dir_hash(Path::new("./")));
+            } else if opt_lower == "create-config" {
+                if util::config::does_config_exists() {
+                    util::config::read_config(Path::new("./"));
+                } else {
+                    util::config::write_default_config(Path::new("./"));
+                }
             }
         }
     }
