@@ -27,6 +27,8 @@ fn main() {
                 } else {
                     util::config::write_default_config(Path::new("./"));
                 }
+            } else if opt_lower == "start-client" {
+                comm::client::connect();
             }
         }
     }
