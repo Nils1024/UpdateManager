@@ -1,4 +1,5 @@
 use std::{collections::VecDeque, io::{ErrorKind, Read, Write}, net::{Shutdown, TcpStream}, sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}, time::Duration};
+use std::io::BufReader;
 use std::sync::{LockResult, MutexGuard};
 use update_manager::util::observer::{Event, Publisher};
 
@@ -74,59 +75,39 @@ impl Conn {
         self.publisher.lock()
     }
 
-    // TODO: Fix timeout
     fn reader(&self) {
-        let mut buf= [0u8; 128];
-        let mut buf = [0u8; 128];
-        let mut consecutive_timeouts = 0u32;
-        const MAX_CONSECUTIVE_TIMEOUTS: u32 = 3;
+        let stream = match self.reader.lock() {
+            Ok(guard) => {
+                guard.try_clone().unwrap()  // ← Klone den Stream aus dem Lock
+            }
+            Err(_) => return,
+        };
+
+        let mut reader = BufReader::new(stream);
+        let mut buf = vec![0u8; 1024];
 
         while self.running.load(Ordering::SeqCst) {
-            let mut reader = match self.reader.lock() {
-                Ok(s) => s,
-                Err(_) => {
-                    eprintln!("Failed to acquire reader lock");
-                    break;
-                }
-            };
-
             match reader.read(&mut buf) {
-                Ok(0) => {
-                    break;
-                }
+                Ok(0) => break,
                 Ok(size) => {
-                    consecutive_timeouts = 0;
-                    drop(reader);
-
                     let msg = String::from_utf8_lossy(&buf[..size]).to_string();
-                    if let Ok(pub_guard) = self.publisher.lock() {
-                        pub_guard.notify(Event::MsgReceived, msg.clone());
-                    }
-
-                    if let Ok(mut msgs) = self.received_messages.lock() {
-                        msgs.push(msg);
-                    }
+                    self.received_messages.lock().unwrap().push(msg.clone());
+                    self.publisher.lock().unwrap().notify(Event::MsgReceived, msg);
                 }
-                Err(e) if e.kind() == ErrorKind::WouldBlock || e.kind() == ErrorKind::TimedOut => {
-                    drop(reader);
-                    consecutive_timeouts += 1;
+                Err(e) if e.kind() == ErrorKind::WouldBlock
+                    || e.kind() == ErrorKind::TimedOut => {
 
-                    if consecutive_timeouts >= MAX_CONSECUTIVE_TIMEOUTS {
-                        println!("Too many consecutive timeouts, closing connection");
-                        break;
-                    }
-
-                    thread::sleep(Duration::from_millis(10));
+                    // TODO: Find a better way to fix this timeout
+                    thread::sleep(Duration::from_millis(2));
+                    eprintln!("Timeout for 2 seconds");
                     continue;
                 }
                 Err(e) => {
-                    drop(reader);
                     eprintln!("Error reading from a stream: {e}");
                     break;
                 }
+            }
         }
-        }
-        self.running.store(false, Ordering::SeqCst);
     }
 
     fn writer(&self) {
