@@ -1,4 +1,6 @@
 use std::{collections::VecDeque, io::{ErrorKind, Read, Write}, net::{Shutdown, TcpStream}, sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}, time::Duration};
+use std::sync::{LockResult, MutexGuard};
+use update_manager::util::observer::{Event, Publisher};
 
 pub struct Conn {
     reader: Arc<Mutex<TcpStream>>,
@@ -7,7 +9,8 @@ pub struct Conn {
     received_messages: Arc<Mutex<Vec<String>>>,
     running: Arc<AtomicBool>,
     reader_handle: Mutex<Option<JoinHandle<()>>>,
-    writer_handle: Mutex<Option<JoinHandle<()>>>
+    writer_handle: Mutex<Option<JoinHandle<()>>>,
+    publisher: Mutex<Publisher>
 }
 
 impl Conn {
@@ -25,6 +28,7 @@ impl Conn {
             running: Arc::new(AtomicBool::new(true)),
             reader_handle: Mutex::new(None),
             writer_handle: Mutex::new(None),
+            publisher: Mutex::new(Publisher::default())
         });
         
         let reader_conn = Arc::clone(&conn);
@@ -66,28 +70,63 @@ impl Conn {
         }
     }
 
+    pub fn events(&self) -> LockResult<MutexGuard<'_, Publisher>> {
+        self.publisher.lock()
+    }
+
+    // TODO: Fix timeout
     fn reader(&self) {
         let mut buf= [0u8; 128];
+        let mut buf = [0u8; 128];
+        let mut consecutive_timeouts = 0u32;
+        const MAX_CONSECUTIVE_TIMEOUTS: u32 = 3;
 
         while self.running.load(Ordering::SeqCst) {
             let mut reader = match self.reader.lock() {
                 Ok(s) => s,
-                Err(_) => break
+                Err(_) => {
+                    eprintln!("Failed to acquire reader lock");
+                    break;
+                }
             };
 
             match reader.read(&mut buf) {
-                Ok(0) => break,
+                Ok(0) => {
+                    break;
+                }
                 Ok(size) => {
+                    consecutive_timeouts = 0;
                     drop(reader);
+
                     let msg = String::from_utf8_lossy(&buf[..size]).to_string();
-                    self.received_messages.lock().unwrap().push(msg);
+                    if let Ok(pub_guard) = self.publisher.lock() {
+                        pub_guard.notify(Event::MsgReceived, msg.clone());
+                    }
+
+                    if let Ok(mut msgs) = self.received_messages.lock() {
+                        msgs.push(msg);
+                    }
+                }
+                Err(e) if e.kind() == ErrorKind::WouldBlock || e.kind() == ErrorKind::TimedOut => {
+                    drop(reader);
+                    consecutive_timeouts += 1;
+
+                    if consecutive_timeouts >= MAX_CONSECUTIVE_TIMEOUTS {
+                        println!("Too many consecutive timeouts, closing connection");
+                        break;
+                    }
+
+                    thread::sleep(Duration::from_millis(10));
+                    continue;
                 }
                 Err(e) => {
+                    drop(reader);
                     eprintln!("Error reading from a stream: {e}");
                     break;
                 }
-            }
         }
+        }
+        self.running.store(false, Ordering::SeqCst);
     }
 
     fn writer(&self) {

@@ -1,6 +1,7 @@
 use std::net::TcpListener;
 use std::thread;
 use std::time::Duration;
+use update_manager::util::observer::Event;
 use crate::comm::conn::Conn;
 
 #[cfg(target_os = "macos")]
@@ -24,14 +25,20 @@ pub fn start() -> std::io::Result<()> {
     let mut connections = Vec::new();
 
     for stream in socket.incoming() {
-        let stream = stream.unwrap();
-        let new_conn = Conn::new(stream);
+        let new_conn = Conn::new(stream?);
 
         println!("New client");
         new_conn.send_msg("Hello\n".to_owned());
 
+        if let Ok(mut publisher) = new_conn.events() {
+            publisher.subscribe(Event::MsgReceived, print_received_message)
+        }
         connections.push(new_conn);
     }
 
     Ok(())
+}
+
+pub fn print_received_message(msg: String) {
+    println!("Message received: {}", msg);
 }
