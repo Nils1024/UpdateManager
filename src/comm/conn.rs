@@ -16,8 +16,6 @@ pub struct Conn {
 
 impl Conn {
     pub fn new(stream: TcpStream) -> Arc<Self> {
-        stream.set_read_timeout(Some(Duration::from_secs(5))).ok();
-
         let reader = stream.try_clone().unwrap();
         let writer = stream;
         
@@ -62,13 +60,6 @@ impl Conn {
         if let Ok(writer) = self.writer.lock() {
             let _ = writer.shutdown(Shutdown::Both);
         }
-
-        if let Some(handle) = self.reader_handle.lock().unwrap().take() {
-            let _ = handle.join();
-        }
-        if let Some(handle) = self.writer_handle.lock().unwrap().take() {
-            let _ = handle.join();
-        }
     }
 
     pub fn events(&self) -> LockResult<MutexGuard<'_, Publisher>> {
@@ -78,7 +69,7 @@ impl Conn {
     fn reader(&self) {
         let stream = match self.reader.lock() {
             Ok(guard) => {
-                guard.try_clone().unwrap()  // ← Klone den Stream aus dem Lock
+                guard.try_clone().unwrap()
             }
             Err(_) => return,
         };
@@ -88,7 +79,10 @@ impl Conn {
 
         while self.running.load(Ordering::SeqCst) {
             match reader.read(&mut buf) {
-                Ok(0) => break,
+                Ok(0) => {
+                    self.close();
+                    break;
+                }
                 Ok(size) => {
                     let msg = String::from_utf8_lossy(&buf[..size]).to_string();
                     self.received_messages.lock().unwrap().push(msg.clone());
@@ -97,13 +91,13 @@ impl Conn {
                 Err(e) if e.kind() == ErrorKind::WouldBlock
                     || e.kind() == ErrorKind::TimedOut => {
 
-                    // TODO: Find a better way to fix this timeout
                     thread::sleep(Duration::from_millis(2));
                     eprintln!("Timeout for 2 seconds");
                     continue;
                 }
                 Err(e) => {
                     eprintln!("Error reading from a stream: {e}");
+                    self.close();
                     break;
                 }
             }
