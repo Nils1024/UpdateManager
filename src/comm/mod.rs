@@ -1,3 +1,3 @@
 pub mod client;
 pub mod server;
-mod conn;
+pub mod conn;

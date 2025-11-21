@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, io::{ErrorKind, Read, Write}, net::{Shutdown, TcpStream}, sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}, time::Duration};
 use std::io::BufReader;
 use std::sync::{LockResult, MutexGuard};
-use update_manager::util::observer::{Event, Publisher};
+use crate::util::observer::{Event, Publisher};
 
 pub struct Conn {
     reader: Arc<Mutex<TcpStream>>,
