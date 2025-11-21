@@ -1,24 +1,9 @@
 use std::io::{Error, ErrorKind};
 use std::net::TcpListener;
 use std::path::Path;
-use update_manager::util::observer::Event;
 use crate::comm::conn::Conn;
 use crate::util;
-
-#[cfg(target_os = "macos")]
-fn create_pid_file() {
-
-}
-
-#[cfg(target_os = "linux")]
-fn create_pid_file() {
-    
-}
-
-#[cfg(target_os = "windows")]
-fn create_pid_file() {
-    
-}
+use crate::util::observer::Event;
 
 /// Starts the server and waits for incoming connections.
 pub fn start() -> std::io::Result<()> {
@@ -33,7 +18,6 @@ pub fn start() -> std::io::Result<()> {
             Err(_) => return Err(Error::from(ErrorKind::InvalidData)),
         }
     }
-
 
     let socket = TcpListener::bind("127.0.0.1:1234")?;
     let mut connections = Vec::new();
