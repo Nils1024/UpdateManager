@@ -18,7 +18,7 @@ fn main() {
                 println!("test");
                 
             } else if opt_lower == "startserver" {
-                comm::server::start().unwrap();
+                util::process_handling::start_new_process("target/debug/server", "server")
             } else if opt_lower == "get-dir-hash" {
                 println!("{}", util::hash::get_dir_hash(Path::new("./")));
             } else if opt_lower == "create-config" {
