@@ -3,6 +3,14 @@ name = "update_manager"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "server"
+path = "src/server_starter.rs"
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
+
 [dependencies]
 sha256 = "1.6.0"
 json = "0.12.4"
