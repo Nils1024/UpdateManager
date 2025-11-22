@@ -1,17 +1,21 @@
 use std::{collections::VecDeque, io::{ErrorKind, Read, Write}, net::{Shutdown, TcpStream}, sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}, time::Duration};
 use std::io::BufReader;
 use std::sync::{LockResult, MutexGuard};
-use crate::util::observer::{Event, Publisher};
+use crate::comm::conn_event;
+use crate::comm::conn_event::ConnEvent;
+use crate::comm::conn_event::ConnEventType::MsgReceived;
+use crate::util::observer::observer::Publisher;
 
+#[derive(Clone)]
 pub struct Conn {
     reader: Arc<Mutex<TcpStream>>,
     writer: Arc<Mutex<TcpStream>>,
     send_messages: Arc<(Mutex<VecDeque<String>>, Condvar)>,
     received_messages: Arc<Mutex<Vec<String>>>,
     running: Arc<AtomicBool>,
-    reader_handle: Mutex<Option<JoinHandle<()>>>,
-    writer_handle: Mutex<Option<JoinHandle<()>>>,
-    publisher: Mutex<Publisher>
+    reader_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
+    writer_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
+    publisher: Arc<Mutex<Publisher<ConnEvent>>>
 }
 
 impl Conn {
@@ -25,9 +29,9 @@ impl Conn {
             send_messages: Arc::new((Mutex::new(VecDeque::new()), Condvar::new())),
             received_messages: Arc::new(Mutex::new(Vec::new())),
             running: Arc::new(AtomicBool::new(true)),
-            reader_handle: Mutex::new(None),
-            writer_handle: Mutex::new(None),
-            publisher: Mutex::new(Publisher::default())
+            reader_handle: Arc::new(Mutex::new(None)),
+            writer_handle: Arc::new(Mutex::new(None)),
+            publisher: Arc::new(Mutex::new(Publisher::default()))
         });
         
         let reader_conn = Arc::clone(&conn);
@@ -49,6 +53,10 @@ impl Conn {
     }
 
     pub fn close(&self) {
+        if !self.running.load(Ordering::SeqCst) {
+            return;
+        }
+
         self.running.store(false, Ordering::SeqCst);
 
         let (_, cvar) = &*self.send_messages;
@@ -62,7 +70,7 @@ impl Conn {
         }
     }
 
-    pub fn events(&self) -> LockResult<MutexGuard<'_, Publisher>> {
+    pub fn events(&self) -> LockResult<MutexGuard<'_, Publisher<conn_event::ConnEvent>>> {
         self.publisher.lock()
     }
 
@@ -86,7 +94,17 @@ impl Conn {
                 Ok(size) => {
                     let msg = String::from_utf8_lossy(&buf[..size]).to_string();
                     self.received_messages.lock().unwrap().push(msg.clone());
-                    self.publisher.lock().unwrap().notify(Event::MsgReceived, msg);
+
+                    let event = ConnEvent {
+                        event_type: MsgReceived,
+                        source: self.clone(),
+                        timestamp: 123,
+                        payload: msg
+                    };
+
+                    if let Ok(pub_lock) = self.publisher.lock() {
+                        pub_lock.notify(event);
+                    }
                 }
                 Err(e) if e.kind() == ErrorKind::WouldBlock
                     || e.kind() == ErrorKind::TimedOut => {

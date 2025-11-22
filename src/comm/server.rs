@@ -2,8 +2,8 @@ use std::io::{Error, ErrorKind};
 use std::net::TcpListener;
 use std::path::Path;
 use crate::comm::conn::Conn;
+use crate::comm::conn_event::{ConnEvent, ConnEventType};
 use crate::util;
-use crate::util::observer::Event;
 
 /// Starts the server and waits for incoming connections.
 pub fn start() -> std::io::Result<()> {
@@ -29,7 +29,7 @@ pub fn start() -> std::io::Result<()> {
         new_conn.send_msg("Hello\n".to_owned());
 
         if let Ok(mut publisher) = new_conn.events() {
-            publisher.subscribe(Event::MsgReceived, print_received_message)
+            publisher.subscribe(ConnEventType::MsgReceived, received_message);
         }
         connections.push(new_conn);
     }
@@ -37,6 +37,10 @@ pub fn start() -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn print_received_message(msg: String) {
-    println!("Message received: {}", msg);
+pub fn received_message(event: ConnEvent) {
+    println!("Message received: {}", event.payload);
+
+    if event.payload == "ClientHello\n" {
+        util::hash::get_dir_hash(Path::new("./"));
+    }
 }
