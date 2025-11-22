@@ -8,17 +8,18 @@ fn main() {
     // let options: Vec<String> = Vec::new();
     
     if args.len() == 1 {
-        print_help();
+        util::cli::print_help();
         return;
     } else {
         for option in args.iter() {
             let opt_lower = option.to_lowercase();
 
-            if opt_lower == "test" {
-                println!("test");
-                
+            if opt_lower == "help" {
+                util::cli::print_help();
             } else if opt_lower == "startserver" {
-                util::process_handling::start_new_process("target/debug/server", "server")
+                util::process_handling::start_new_process("target/debug/server", "server");
+            } else if opt_lower == "stopserver" {
+                util::process_handling::shutdown_process("server");
             } else if opt_lower == "get-dir-hash" {
                 println!("{}", util::hash::get_dir_hash(Path::new("./")));
             } else if opt_lower == "create-config" {
@@ -33,14 +34,5 @@ fn main() {
         }
     }
 
-    return;
-}
-
-/// Prints out the help string to the console
-fn print_help() {
-    println!("Update Manager");
-    println!("usage: upman [options]");
-    println!("options:");
-    println!("\t-v, --verbose\tAdds logging");
     return;
 }
