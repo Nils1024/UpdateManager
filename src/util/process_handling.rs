@@ -1,10 +1,18 @@
-use std::env;
 use std::ffi::OsStr;
+use std::fs;
 use std::fs::File;
-use std::io::{ErrorKind, Write};
-use std::process::{Child, Command, Stdio};
+use std::io::{Read, Write};
+use std::path::Path;
+use std::process::{Command, Stdio};
 
 pub fn start_new_process(program: impl AsRef<OsStr>, description: &str) {
+    let program_path = Path::new(program.as_ref());
+
+    if !program_path.exists() {
+        println!("Executable '{}' does not exist", program.as_ref().to_string_lossy());
+        return;
+    }
+
     let mut command = Command::new(program);
 
     command.stdout(Stdio::null()).stdin(Stdio::null()).stderr(Stdio::null());
@@ -19,25 +27,55 @@ pub fn start_new_process(program: impl AsRef<OsStr>, description: &str) {
     }
 }
 
+pub fn shutdown_process(description: &str) {
+    let pid = read_pid_file(description);
+
+    kill_process(pid, false);
+    delete_pid_file(description);
+}
+
+/// Writes the given process id (pid) to a {description}.pid file in
+/// the little endian (le) format
 fn create_pid_file(pid: u32, description: &str) {
-    let file_name = format!("{}.pid", description);
+    let file_name = get_pid_file_name(description);
     let pid_file = File::create(file_name);
 
     if let Ok(mut pid_file) = pid_file {
-        if let Ok(file_write) = pid_file.write_all(pid.to_string().as_bytes()) {
+        if let Ok(_) = pid_file.write_all(pid.to_le_bytes().as_ref()) {
             return;
         }
     }
 }
 
-fn shutdown_process() {
+fn delete_pid_file(description: &str) -> bool {
+    let file_name = get_pid_file_name(description);
 
+    fs::remove_file(file_name).is_ok()
 }
 
-fn delete_pid_file() {
+/// Reads the first 4 bytes of the {description}.pid file in the little endian format.
+fn read_pid_file(description: &str) -> u32 {
+    let file_name = get_pid_file_name(description);
 
+    if let Ok(mut pid_file) = File::open(file_name.clone()) {
+        let mut buffer = [0u8; 4];
+
+        match pid_file.read_exact(&mut buffer) {
+            Ok(_) => {
+                return u32::from_le_bytes(buffer);
+            },
+            Err(_) => {
+                println!("Error reading pid file: {}", file_name);
+            }
+        }
+    }
+
+    0
 }
 
+fn get_pid_file_name(description: &str) -> String {
+    format!("{}.pid", description)
+}
 
 fn kill_process(pid: u32, force: bool) -> bool {
     let mut cmd;
