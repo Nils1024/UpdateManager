@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
+use crate::util::constants::{PID_FILE_EXTENSION, UNIX_KILL_COMMAND, UNIX_SIGKILL_ARG, UNIX_SIGTERM_ARG};
 
 pub fn start_new_process(program: impl AsRef<OsStr>, description: &str) {
     let program_path = Path::new(program.as_ref());
@@ -74,7 +75,7 @@ fn read_pid_file(description: &str) -> u32 {
 }
 
 fn get_pid_file_name(description: &str) -> String {
-    format!("{}.pid", description)
+    format!("{}{}", description, PID_FILE_EXTENSION)
 }
 
 fn kill_process(pid: u32, force: bool) -> bool {
@@ -82,12 +83,12 @@ fn kill_process(pid: u32, force: bool) -> bool {
 
     #[cfg(not(target_os = "windows"))] // Linux and macOS
     {
-        cmd = Command::new("kill");
+        cmd = Command::new(UNIX_KILL_COMMAND);
 
         if force {
-            cmd.arg("-9");
+            cmd.arg(UNIX_SIGKILL_ARG);
         } else {
-            cmd.arg("-15");
+            cmd.arg(UNIX_SIGTERM_ARG);
         }
 
         cmd.arg(pid.to_string());
@@ -95,7 +96,7 @@ fn kill_process(pid: u32, force: bool) -> bool {
 
     #[cfg(target_os = "windows")]
     {
-        cmd = Command::new("taskkill");
+        cmd = Command::new(WIN_KILL_COMMAND);
 
         if force {
             cmd.arg("/F");
