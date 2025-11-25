@@ -74,6 +74,24 @@ impl Conn {
         self.publisher.lock()
     }
 
+    pub fn wait_for_shutdown(&self) {
+        // Wait for reader thread to end
+        let reader_handle = self.reader_handle.lock().unwrap().take();
+        if let Some(handle) = reader_handle {
+            if let Err(e) = handle.join() {
+                eprintln!("Reader Thread Panicked: {:?}", e);
+            }
+        }
+
+        // Wait for writer thread to end
+        let writer_handle = self.writer_handle.lock().unwrap().take();
+        if let Some(handle) = writer_handle {
+            if let Err(e) = handle.join() {
+                eprintln!("Writer Thread Panicked: {:?}", e);
+            }
+        }
+    }
+
     fn reader(&self) {
         let stream = match self.reader.lock() {
             Ok(guard) => {
