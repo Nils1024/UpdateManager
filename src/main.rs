@@ -20,16 +20,13 @@ fn main() {
                 util::process_handling::start_new_process("target/debug/server", "server");
             } else if opt_lower == "stopserver" {
                 util::process_handling::shutdown_process("server");
-            } else if opt_lower == "get-dir-hash" {
-                println!("{}", util::hash::get_dir_hash(Path::new("./")));
-            } else if opt_lower == "create-config" {
-                if util::config::does_config_exists() {
-                    util::config::read_config(Path::new("./"));
-                } else {
-                    util::config::write_default_config(Path::new("./"));
-                }
             } else if opt_lower == "start-client" {
                 comm::client::connect();
+            } else if opt_lower == "create-client-binary" {
+                let _ = color_eyre::install();
+                let terminal = ratatui::init();
+                let _ = util::tui::tui::run(terminal);
+                ratatui::restore();
             }
         }
     }
