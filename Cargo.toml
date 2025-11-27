@@ -2,6 +2,7 @@
 name = "update_manager"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
 
 [[bin]]
 name = "server"
@@ -15,3 +16,6 @@ path = "src/main.rs"
 sha256 = "1.6.0"
 json = "0.12.4"
 ratatui = "0.29.0"
+color-eyre = "0.6.3"
+crossterm = "0.29.0"
+tui-input = "0.14.0"
