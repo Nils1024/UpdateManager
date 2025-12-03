@@ -92,6 +92,10 @@ impl Conn {
         }
     }
 
+    pub fn get_address(&self) -> String {
+        self.reader.lock().unwrap().peer_addr().unwrap().to_string()
+    }
+
     fn reader(&self) {
         let stream = match self.reader.lock() {
             Ok(guard) => {
