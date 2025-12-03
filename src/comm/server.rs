@@ -1,14 +1,46 @@
+use std::cmp::PartialEq;
+use std::fs;
 use std::net::{TcpListener};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use crate::comm::conn::Conn;
-use crate::comm::conn_event::{ConnEvent, ConnEventType};
+use crate::comm::conn_event::{ConnEventType};
 use crate::util;
 
 pub struct Server {
     dir_hash: String,
     socket: TcpListener,
-    connections: Vec<Arc<Conn>>,
+    sessions: Vec<Arc<Mutex<Session>>>
+}
+
+struct Session {
+    conn: Arc<Conn>,
+    state: ConnState
+}
+
+impl Session {
+    pub fn change_state(&mut self, new_state: ConnState) {
+        self.state = new_state;
+    }
+}
+
+enum ConnState {
+    Connected,
+    HandshakeCompleted,
+    Update,
+    Finished
+}
+
+impl PartialEq for ConnState {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (ConnState::Connected, ConnState::Connected) => true,
+            (ConnState::HandshakeCompleted, ConnState::HandshakeCompleted) => true,
+            (ConnState::Update, ConnState::Update) => true,
+            (ConnState::Finished, ConnState::Finished) => true,
+            _ => false
+        }
+    }
 }
 
 impl Server {
@@ -16,7 +48,7 @@ impl Server {
         Server {
             dir_hash: util::hash::get_dir_hash(Path::new("./")),
             socket: TcpListener::bind(addr).unwrap(),
-            connections: Vec::new(),
+            sessions: Vec::new()
         }
     }
 
@@ -25,18 +57,46 @@ impl Server {
         for stream in self.socket.incoming() {
             let new_conn = Conn::new(stream?);
 
-            println!("New client");
+            println!("New client: {}", new_conn.get_address());
 
             let hash = self.get_hash();
 
-            self.connections.push(new_conn);
+            let session = Session {
+                conn: new_conn.clone(),
+                state: ConnState::Connected,
+            };
 
-            if let Some(stored_conn) = self.connections.last_mut() {
-                if let Ok(mut publisher) = stored_conn.events() {
-                    publisher.subscribe(ConnEventType::MsgReceived, move |event| {
-                        handle_message(event, &hash);
-                    });
-                }
+            let session_ref = Arc::new(Mutex::new(session));
+            self.sessions.push(session_ref.clone());
+
+            let session_for_callback = session_ref.clone();
+
+            if let Ok(mut publisher) = new_conn.events() {
+                publisher.subscribe(ConnEventType::MsgReceived, move |event| {
+                    println!("Message received: {}", event.payload);
+
+                    if let Ok(mut current_session) = session_for_callback.lock() {
+                        if current_session.state == ConnState::HandshakeCompleted {
+                            if event.payload != hash.to_string() {
+                                current_session.change_state(ConnState::Update);
+
+                                //TODO: Send files
+                                util::files::walk_file_tree(Path::new("./"), &|entry| {
+                                    event.source.send_msg(entry.file_name().to_str().unwrap().to_string());
+                                }).expect("Failed to walk_file_tree");
+
+                                current_session.change_state(ConnState::Finished);
+                            } else {
+                                current_session.change_state(ConnState::Finished);
+                            }
+                        }
+
+                        if event.payload == "ClientHello\n" {
+                            current_session.change_state(ConnState::HandshakeCompleted);
+                            event.source.send_msg(hash.to_string());
+                        }
+                    }
+                });
             }
         }
 
@@ -45,13 +105,5 @@ impl Server {
 
     pub fn get_hash(&self) -> String {
         self.dir_hash.clone()
-    }
-}
-
-fn handle_message(event: ConnEvent, hash: &str) {
-    println!("Message received: {}", event.payload);
-
-    if event.payload == "ClientHello\n" {
-        event.source.send_msg(hash.to_string());
     }
 }
