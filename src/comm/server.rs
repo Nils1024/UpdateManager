@@ -73,16 +73,16 @@ impl Server {
 
             if let Ok(mut publisher) = new_conn.events() {
                 publisher.subscribe(ConnEventType::MsgReceived, move |event| {
-                    println!("Message received: {}", event.payload);
+                    println!("Message received: {:?}", event.payload);
 
                     if let Ok(mut current_session) = session_for_callback.lock() {
                         if current_session.state == ConnState::HandshakeCompleted {
-                            if event.payload != hash.to_string() {
+                            if String::from_utf8_lossy(&*event.payload) != hash.to_string() {
                                 current_session.change_state(ConnState::Update);
 
                                 //TODO: Send files
                                 util::files::walk_file_tree(Path::new("./"), &|entry| {
-                                    event.source.send_msg(entry.file_name().to_str().unwrap().to_string());
+                                    event.source.send_msg_string(entry.file_name().to_str().unwrap().to_string());
                                 }).expect("Failed to walk_file_tree");
 
                                 current_session.change_state(ConnState::Finished);
@@ -91,9 +91,9 @@ impl Server {
                             }
                         }
 
-                        if event.payload == "ClientHello\n" {
+                        if String::from_utf8_lossy(&*event.payload) == "ClientHello\n" {
                             current_session.change_state(ConnState::HandshakeCompleted);
-                            event.source.send_msg(hash.to_string());
+                            event.source.send_msg_string(hash.to_string());
                         }
                     }
                 });

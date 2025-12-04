@@ -11,7 +11,7 @@ pub struct ConnEvent {
     pub event_type: ConnEventType,
     pub source: Conn,
     pub timestamp: u64,
-    pub payload: String,
+    pub payload: Vec<u8>,
 }
 
 impl util::observer::identifiable_event::IdentifiableEvent for ConnEvent {

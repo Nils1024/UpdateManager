@@ -10,8 +10,8 @@ use crate::util::observer::observer::Publisher;
 pub struct Conn {
     reader: Arc<Mutex<TcpStream>>,
     writer: Arc<Mutex<TcpStream>>,
-    send_messages: Arc<(Mutex<VecDeque<String>>, Condvar)>,
-    received_messages: Arc<Mutex<Vec<String>>>,
+    send_messages: Arc<(Mutex<VecDeque<Vec<u8>>>, Condvar)>,
+    received_messages: Arc<Mutex<Vec<Vec<u8>>>>,
     running: Arc<AtomicBool>,
     reader_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
     writer_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
@@ -45,10 +45,10 @@ impl Conn {
         conn
     }
 
-    pub fn send_msg(&self, msg: String) {
+    pub fn send_msg_string(&self, msg: String) {
         let (lock, cvar) = &*self.send_messages;
         let mut queue = lock.lock().unwrap();
-        queue.push_back(msg);
+        queue.push_back(msg.as_bytes().to_vec());
         cvar.notify_one();
     }
 
@@ -114,7 +114,7 @@ impl Conn {
                     break;
                 }
                 Ok(size) => {
-                    let msg = String::from_utf8_lossy(&buf[..size]).to_string();
+                    let msg = buf[..size].to_vec();
                     self.received_messages.lock().unwrap().push(msg.clone());
 
                     let event = ConnEvent {
@@ -158,7 +158,7 @@ impl Conn {
                 if let Ok(mut stream) = self.writer.lock() {
                     println!("Sending: {:?}", msg);
                     
-                    if let Err(e) = stream.write_all(msg.as_bytes()) {
+                    if let Err(e) = stream.write_all(&*msg) {
                         eprintln!("Error writing to a stream: {e}");
                         return;
                     }

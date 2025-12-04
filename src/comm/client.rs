@@ -14,7 +14,7 @@ pub fn connect() {
         publisher.subscribe(ConnEventType::MsgReceived, received_message);
     }
 
-    conn.send_msg("ClientHello\n".to_owned());
+    conn.send_msg_string("ClientHello\n".to_owned());
 
     conn.wait_for_shutdown();
 
@@ -22,6 +22,6 @@ pub fn connect() {
 }
 
 pub fn received_message(event: ConnEvent) {
-    println!("Message received: {}", event.payload);
+    println!("Message received: {:?}", event.payload);
 
 }
