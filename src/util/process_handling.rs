@@ -6,7 +6,11 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use crate::util::constants::{PID_FILE_EXTENSION, UNIX_KILL_COMMAND, UNIX_SIGKILL_ARG, UNIX_SIGTERM_ARG};
 
-pub fn start_new_process(program: impl AsRef<OsStr>, description: &str) {
+unsafe extern "C" {
+    fn kill(pid: i32, sig: i32) -> i32;
+}
+
+pub fn start_new_process(program: impl AsRef<OsStr>, args: Vec<&str>, description: &str) {
     let program_path = Path::new(program.as_ref());
 
     if !program_path.exists() {
@@ -17,6 +21,7 @@ pub fn start_new_process(program: impl AsRef<OsStr>, description: &str) {
     let mut command = Command::new(program);
 
     command.stdout(Stdio::null()).stdin(Stdio::null()).stderr(Stdio::null());
+    command.args(args);
 
     match command.spawn() {
         Ok(child) => {
@@ -33,6 +38,18 @@ pub fn shutdown_process(description: &str) {
 
     kill_process(pid, false);
     delete_pid_file(description);
+}
+
+pub fn is_process_running(description: &str) -> bool {
+    let pid = read_pid_file(description);
+
+    if pid == 0 {
+        return false
+    }
+
+    unsafe {
+        kill(pid as i32, 0) == 0
+    }
 }
 
 /// Writes the given process id (pid) to a {description}.pid file in
