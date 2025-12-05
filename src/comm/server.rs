@@ -1,46 +1,16 @@
-use std::cmp::PartialEq;
-use std::fs;
 use std::net::{TcpListener};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use crate::comm::conn::Conn;
 use crate::comm::conn_event::{ConnEventType};
-use crate::util;
+use crate::{util};
+use crate::comm::conn_state::ConnState;
+use crate::comm::session::Session;
 
 pub struct Server {
     dir_hash: String,
     socket: TcpListener,
     sessions: Vec<Arc<Mutex<Session>>>
-}
-
-struct Session {
-    conn: Arc<Conn>,
-    state: ConnState
-}
-
-impl Session {
-    pub fn change_state(&mut self, new_state: ConnState) {
-        self.state = new_state;
-    }
-}
-
-enum ConnState {
-    Connected,
-    HandshakeCompleted,
-    Update,
-    Finished
-}
-
-impl PartialEq for ConnState {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (ConnState::Connected, ConnState::Connected) => true,
-            (ConnState::HandshakeCompleted, ConnState::HandshakeCompleted) => true,
-            (ConnState::Update, ConnState::Update) => true,
-            (ConnState::Finished, ConnState::Finished) => true,
-            _ => false
-        }
-    }
 }
 
 impl Server {
@@ -80,18 +50,18 @@ impl Server {
                             if String::from_utf8_lossy(&*event.payload) != hash.to_string() {
                                 current_session.change_state(ConnState::Update);
 
-                                //TODO: Send files
                                 util::files::walk_file_tree(Path::new("./"), &|entry| {
-                                    event.source.send_msg_string(entry.file_name().to_str().unwrap().to_string());
+                                    event.source.send_file(&*entry.path());
                                 }).expect("Failed to walk_file_tree");
 
                                 current_session.change_state(ConnState::Finished);
+                                event.source.close();
                             } else {
                                 current_session.change_state(ConnState::Finished);
                             }
                         }
 
-                        if String::from_utf8_lossy(&*event.payload) == "ClientHello\n" {
+                        if String::from_utf8_lossy(&*event.payload) == util::constants::GREETING_MSG {
                             current_session.change_state(ConnState::HandshakeCompleted);
                             event.source.send_msg_string(hash.to_string());
                         }
