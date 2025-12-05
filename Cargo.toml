@@ -9,8 +9,12 @@ name = "server"
 path = "src/server_starter.rs"
 
 [[bin]]
-name = "main"
-path = "src/main.rs"
+name = "client"
+path = "src/client.rs"
+
+[[bin]]
+name = "config_creator"
+path = "src/config_creator.rs"
 
 [dependencies]
 sha256 = "1.6.0"
