@@ -1,5 +1,7 @@
 use std::{collections::VecDeque, io::{ErrorKind, Read, Write}, net::{Shutdown, TcpStream}, sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}, time::Duration};
+use std::fs::File;
 use std::io::BufReader;
+use std::path::Path;
 use std::sync::{LockResult, MutexGuard};
 use crate::comm::conn_event;
 use crate::comm::conn_event::ConnEvent;
@@ -50,6 +52,20 @@ impl Conn {
         let mut queue = lock.lock().unwrap();
         queue.push_back(msg.as_bytes().to_vec());
         cvar.notify_one();
+    }
+
+    pub fn send_msg(&self, msg: Vec<u8>) {
+        let (lock, cvar) = &*self.send_messages;
+        let mut queue = lock.lock().unwrap();
+        queue.push_back(msg);
+        cvar.notify_one();
+    }
+
+    pub fn send_file(&self, path: &Path) {
+        if let Ok(mut file) = File::open(path) {
+            let meta_data = file.metadata();
+
+        }
     }
 
     pub fn close(&self) {
