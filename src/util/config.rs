@@ -56,7 +56,8 @@ pub fn write_default_config(path: &Path) -> io::Result<File> {
 
 fn get_default_config() -> JsonValue {
     let default_data = object! {
-        "port" => 4455,
+        util::constants::CONFIG_PORT_KEY => util::constants::STD_PORT,
+        util::constants::CONFIG_ADDRESS_KEY => util::constants::STD_ADDRESS,
     };
 
     default_data
