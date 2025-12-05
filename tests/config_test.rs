@@ -4,6 +4,6 @@ mod tests {
 
     #[test]
     fn test_string_building() {
-        assert_eq!(util::constants::PROGRAM_NAME.to_owned() + util::constants::CONFIG_FILE_EXTENSION, "upman.cfg");
+        assert_eq!(util::constants::PROGRAM_NAME.to_owned() + util::constants::CONFIG_FILE_EXTENSION, "upman.json");
     }
 }
