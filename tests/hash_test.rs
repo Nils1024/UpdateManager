@@ -1,5 +1,4 @@
-use tempfile::{tempdir, NamedTempFile};
-use std::io::Write;
+use tempfile::tempdir;
 use std::fs;
 use update_manager::util::hash::*;
 
