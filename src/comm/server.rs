@@ -1,4 +1,4 @@
-use std::{env, fs};
+use std::{env, fs, thread};
 use std::net::{TcpListener};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -79,8 +79,12 @@ impl Server {
                                 }).expect("Failed to walk_file_tree");
 
                                 current_session.change_state(ConnState::Finished);
-                                event.source.wait_until_msg_queue_is_empty();
-                                event.source.close();
+
+                                let conn_clone = current_session.conn.clone();
+                                thread::spawn(move || {
+                                    conn_clone.wait_until_msg_queue_is_empty();
+                                    conn_clone.close();
+                                });
                             } else {
                                 current_session.change_state(ConnState::Finished);
                             }
