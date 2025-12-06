@@ -9,7 +9,7 @@ pub fn get_dir_hash(dir: &Path) -> String {
     let hashes = RefCell::new(Vec::new());
 
     walk_file_tree(dir, &|entry| {
-        if entry.file_name().to_str().unwrap() == util::config::get_config_name() {
+        if util::files::is_excluded(entry) {
             return;
         }
         

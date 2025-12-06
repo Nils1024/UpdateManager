@@ -53,26 +53,9 @@ impl Server {
 
                                 let exe_dir = env::current_exe().unwrap();
 
-                                let exe_canon = match env::current_exe().and_then(|p| fs::canonicalize(p)) {
-                                    Ok(p) => p,
-                                    Err(e) => { eprintln!("Kann current_exe nicht ermitteln: {}", e); return; }
-                                };
-
                                 util::files::walk_file_tree(exe_dir.parent().unwrap(), &|entry| {
-                                    if let Some(name) = entry.path().file_name().and_then(|s| s.to_str()) {
-                                        if name == "upman.json" || name == ".DS_Store" {
-                                            return;
-                                        }
-                                    }
-
-                                    let entry_canon = match fs::canonicalize(entry.path()) {
-                                        Ok(c) => c,
-                                        Err(_) => {
-                                            return;
-                                        }
-                                    };
-                                    if entry_canon == exe_canon {
-                                        return;
+                                    if util::files::is_excluded(entry) {
+                                        return
                                     }
 
                                     event.source.send_file(&*entry.path());
