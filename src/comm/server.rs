@@ -1,3 +1,4 @@
+use std::{env, fs};
 use std::net::{TcpListener};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -50,11 +51,35 @@ impl Server {
                             if String::from_utf8_lossy(&*event.payload) != hash.to_string() {
                                 current_session.change_state(ConnState::Update);
 
-                                util::files::walk_file_tree(Path::new("./"), &|entry| {
+                                let exe_dir = env::current_exe().unwrap();
+
+                                let exe_canon = match env::current_exe().and_then(|p| fs::canonicalize(p)) {
+                                    Ok(p) => p,
+                                    Err(e) => { eprintln!("Kann current_exe nicht ermitteln: {}", e); return; }
+                                };
+
+                                util::files::walk_file_tree(exe_dir.parent().unwrap(), &|entry| {
+                                    if let Some(name) = entry.path().file_name().and_then(|s| s.to_str()) {
+                                        if name == "upman.json" || name == ".DS_Store" {
+                                            return;
+                                        }
+                                    }
+
+                                    let entry_canon = match fs::canonicalize(entry.path()) {
+                                        Ok(c) => c,
+                                        Err(_) => {
+                                            return;
+                                        }
+                                    };
+                                    if entry_canon == exe_canon {
+                                        return;
+                                    }
+
                                     event.source.send_file(&*entry.path());
                                 }).expect("Failed to walk_file_tree");
 
                                 current_session.change_state(ConnState::Finished);
+                                event.source.wait_until_msg_queue_is_empty();
                                 event.source.close();
                             } else {
                                 current_session.change_state(ConnState::Finished);
