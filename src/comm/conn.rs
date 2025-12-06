@@ -1,8 +1,9 @@
-use std::{collections::VecDeque, io::{ErrorKind, Read, Write}, net::{Shutdown, TcpStream}, sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}, time::Duration};
+use std::{collections::VecDeque, fs, io::{ErrorKind, Read, Write}, net::{Shutdown, TcpStream}, sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}, time::Duration};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 use std::sync::{LockResult, MutexGuard};
+use json::object;
 use crate::comm::conn_event;
 use crate::comm::conn_event::ConnEvent;
 use crate::comm::conn_event::ConnEventType::MsgReceived;
@@ -51,21 +52,34 @@ impl Conn {
         let (lock, cvar) = &*self.send_messages;
         let mut queue = lock.lock().unwrap();
         queue.push_back(msg.as_bytes().to_vec());
-        cvar.notify_one();
+        cvar.notify_all();
     }
 
     pub fn send_msg(&self, msg: Vec<u8>) {
         let (lock, cvar) = &*self.send_messages;
         let mut queue = lock.lock().unwrap();
         queue.push_back(msg);
-        cvar.notify_one();
+        cvar.notify_all();
     }
 
     pub fn send_file(&self, path: &Path) {
-        if let Ok(mut file) = File::open(path) {
-            let meta_data = file.metadata();
+        let (lock, cvar) = &*self.send_messages;
+        let mut queue = lock.lock().unwrap();
 
+        if let Ok(file) = File::open(path) {
+            if let Ok(meta_data) = file.metadata() {
+                let meta_data_json = object! {
+                    "name": path.file_name().unwrap().to_str().unwrap(),
+                    "size": meta_data.len()
+                };
+
+                queue.push_back(meta_data_json.to_string().into_bytes());
+
+                queue.push_back(fs::read(path).unwrap());
+            }
         }
+
+        cvar.notify_all();
     }
 
     pub fn close(&self) {
@@ -106,6 +120,16 @@ impl Conn {
                 eprintln!("Writer Thread Panicked: {:?}", e);
             }
         }
+    }
+
+    pub fn wait_until_msg_queue_is_empty(&self) {
+        let (lock, cvar) = &*self.send_messages;
+
+        let queue = lock.lock().unwrap();
+
+        drop(cvar.wait_while(queue, |q| {
+            !q.is_empty() && self.running.load(Ordering::SeqCst)
+        }));
     }
 
     pub fn get_address(&self) -> String {
