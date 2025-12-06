@@ -36,6 +36,7 @@ pub fn connect() {
     let is_meta_data = Arc::new(AtomicBool::new(true));
     let remaining_bytes = Arc::new(AtomicUsize::new(0));
     let file_stream = Arc::new(Mutex::new(None::<BufWriter<File>>));
+    let metadata_buffer = Arc::new(Mutex::new(Vec::new()));
 
     if let Ok(mut publisher) = conn.events() {
         publisher.subscribe(ConnEventType::MsgReceived, move |event| {
@@ -51,7 +52,7 @@ pub fn connect() {
                     }
                 } else if current_session.state == ConnState::Update {
                     if is_meta_data.load(Ordering::Acquire) {
-                        if let Ok(meta_data) = json::parse(&*String::from_utf8_lossy(&*event.payload)) {
+                        if let Ok(meta_data) = json::parse(&*String::from_utf8_lossy(&event.payload[0..(event.payload.len() - 1)])) {
                             if let Some(size_val) = meta_data["size"].as_usize() {
                                 remaining_bytes.store(size_val, Ordering::Release);
                             }
@@ -63,14 +64,74 @@ pub fn connect() {
                             is_meta_data.store(false, Ordering::Release);
                         }
                     } else {
-                        let mut stream = file_stream.lock().unwrap().take().unwrap();
-                        stream.write_all(&*event.payload).unwrap();
+                        let remaining_bytes_val = remaining_bytes.load(Ordering::Acquire);
+                        let payload_len = event.payload.len();
 
-                        remaining_bytes.store(remaining_bytes.load(Ordering::Acquire) - event.payload.len(), Ordering::Release);
+                        if remaining_bytes_val >= payload_len {
+                            if let Some(stream) = file_stream.lock().unwrap().as_mut() {
+                                stream.write_all(&event.payload).unwrap();
 
-                        if remaining_bytes.load(Ordering::Acquire) <= 0 {
-                            let _ = stream.flush();
-                            is_meta_data.store(true, Ordering::Release);
+                                let new_remaining = remaining_bytes_val - payload_len;
+                                remaining_bytes.store(new_remaining, Ordering::Release);
+
+                                if new_remaining == 0 {
+                                    stream.flush().unwrap();
+                                    is_meta_data.store(true, Ordering::Release);
+                                }
+                            }
+                        } else {
+                            if let Some(stream) = file_stream.lock().unwrap().as_mut() {
+                                stream.write_all(&event.payload[0..remaining_bytes_val]).unwrap();
+                                let _ = stream.flush();
+                            }
+
+                            let leftover_slice = &event.payload[remaining_bytes_val..];
+                            let mut guard = metadata_buffer.lock().unwrap();
+
+                            match leftover_slice.iter().position(|&b| b == 0) {
+                                Some(zero_byte_index) => {
+                                    guard.extend_from_slice(&leftover_slice[..zero_byte_index]);
+                                    let json = String::from_utf8_lossy(&guard);
+
+                                    if let Ok(meta_data) = json::parse(&json) {
+                                        let mut new_size = 0;
+
+                                        if let Some(size_val) = meta_data["size"].as_usize() {
+                                            new_size = size_val;
+                                        }
+                                        if let Some(name_val) = meta_data["name"].as_str() {
+                                            let file = File::create(name_val);
+                                            let mut writer = BufWriter::new(file.unwrap());
+
+                                            let new_file_data_start = zero_byte_index + 1;
+
+                                            if new_file_data_start < leftover_slice.len() {
+                                                let data_for_new_file = &leftover_slice[new_file_data_start..];
+                                                writer.write_all(data_for_new_file).unwrap();
+
+                                                let written = data_for_new_file.len();
+
+                                                if written >= new_size {
+                                                    writer.flush().unwrap();
+                                                    is_meta_data.store(true, Ordering::Release);
+                                                    remaining_bytes.store(0, Ordering::Release);
+                                                } else {
+                                                    remaining_bytes.store(new_size - written, Ordering::Release);
+                                                }
+                                            } else {
+                                                remaining_bytes.store(new_size, Ordering::Release);
+                                            }
+
+                                            *file_stream.lock().unwrap() = Some(writer);
+                                        }
+                                    }
+
+                                    guard.clear();
+                                },
+                                None => {
+                                    guard.extend_from_slice(leftover_slice);
+                                }
+                            }
                         }
                     }
                 }
