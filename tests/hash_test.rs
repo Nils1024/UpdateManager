@@ -15,6 +15,7 @@ mod tests {
         fs::write(dir_path.join("b.txt"), b"Content B").unwrap();
         fs::write(dir_path.join("c.txt"), b"Content C").unwrap();
 
+        // Command used: echo -n "Enter file content here" | shasum -a 256
         // Content A = 02f67ccd1094983cb438874466ce795ddf13ec4989dbd10eebfcf3ab2c8c04ca
         // Content B = 4b73e0d3a959744c282112e98bba96ac6da2fbc10ebfa6043e7f04eaa6058b07
         // Content C = c6e39a777a1da3a1af88b5024be9c249b535f9190052a356b862772705171b49
