@@ -49,6 +49,8 @@ pub fn connect() {
                     if String::from_utf8_lossy(&*event.payload) != hash {
                         event.source.send_msg_string(hash);
                         current_session.change_state(ConnState::Update)
+                    } else {
+                        event.source.close();
                     }
                 } else if current_session.state == ConnState::Update {
                     if is_meta_data.load(Ordering::Acquire) {
