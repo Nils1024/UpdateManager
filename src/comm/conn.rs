@@ -73,7 +73,9 @@ impl Conn {
                     "size": meta_data.len()
                 };
 
-                queue.push_back(meta_data_json.to_string().into_bytes());
+                let mut bytes = meta_data_json.to_string().into_bytes();
+                bytes.push(0);
+                queue.push_back(bytes);
 
                 queue.push_back(fs::read(path).unwrap());
             }
