@@ -1,7 +1,8 @@
 use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Error, Read, Write};
+use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
 #[cfg(not(target_os = "windows"))]
@@ -53,6 +54,10 @@ pub fn is_process_running(description: &str) -> bool {
     unsafe {
         kill(pid as i32, 0) == 0
     }
+}
+
+pub fn execute(exe: &str, args: &[&str]) -> Error {
+    Command::new(exe).args(args).exec()
 }
 
 /// Writes the given process id (pid) to a {description}.pid file in
