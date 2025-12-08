@@ -4,7 +4,10 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
+#[cfg(not(target_os = "windows"))]
 use crate::util::constants::{PID_FILE_EXTENSION, UNIX_KILL_COMMAND, UNIX_SIGKILL_ARG, UNIX_SIGTERM_ARG};
+#[cfg(target_os = "windows")]
+use crate::util::constants::{PID_FILE_EXTENSION, WIN_KILL_COMMAND};
 
 unsafe extern "C" {
     fn kill(pid: i32, sig: i32) -> i32;
