@@ -25,5 +25,13 @@ fn main() {
 
     if !connection_result {
         eprintln!("Failed to connect to server. Make sure the server is running or you configured the correct address in the upman.json");
+        exit(1);
+    }
+
+    if !get_config().contains_key("program") {
+        println!("No program specified. Exiting");
+        exit(1);
+    } else {
+        util::process_handling::execute(get_config().get("program").unwrap(), &[""]);
     }
 }
