@@ -1,6 +1,7 @@
-use std::fs::File;
+use std::fs::{File, Permissions};
 use std::io::{BufWriter, Write};
 use std::net::TcpStream;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -61,8 +62,15 @@ pub fn connect() -> bool {
                                 remaining_bytes.store(size_val, Ordering::Release);
                             }
                             if let Some(name_val) = meta_data["name"].as_str() {
-                                let file = File::create(name_val);
-                                *file_stream.lock().unwrap() = Some(BufWriter::new(file.unwrap()));
+                                let file = File::create(name_val).unwrap();
+
+                                if let Some(is_app_val) = meta_data["is_app"].as_bool() {
+                                    if is_app_val {
+                                        file.set_permissions(Permissions::from_mode(0o111)).expect("Failed to set permissions");
+                                    }
+                                }
+
+                                *file_stream.lock().unwrap() = Some(BufWriter::new(file));
                             }
 
                             is_meta_data.store(false, Ordering::Release);
@@ -104,8 +112,15 @@ pub fn connect() -> bool {
                                             new_size = size_val;
                                         }
                                         if let Some(name_val) = meta_data["name"].as_str() {
-                                            let file = File::create(name_val);
-                                            let mut writer = BufWriter::new(file.unwrap());
+                                            let file = File::create(name_val).unwrap();
+
+                                            if let Some(is_app_val) = meta_data["is_app"].as_bool() {
+                                                if is_app_val {
+                                                    file.set_permissions(Permissions::from_mode(0o111)).expect("Failed to set permissions");
+                                                }
+                                            }
+
+                                            let mut writer = BufWriter::new(file);
 
                                             let new_file_data_start = zero_byte_index + 1;
 
