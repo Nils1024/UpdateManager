@@ -1,6 +1,7 @@
 use std::{collections::VecDeque, fs, io::{ErrorKind, Read, Write}, net::{Shutdown, TcpStream}, sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}, time::Duration};
 use std::fs::File;
 use std::io::BufReader;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::{LockResult, MutexGuard};
 use json::object;
@@ -70,7 +71,8 @@ impl Conn {
             if let Ok(meta_data) = file.metadata() {
                 let meta_data_json = object! {
                     "name": path.file_name().unwrap().to_str().unwrap(),
-                    "size": meta_data.len()
+                    "size": meta_data.len(),
+                    "is_app": meta_data.permissions().mode() & 0o111 != 0
                 };
 
                 let mut bytes = meta_data_json.to_string().into_bytes();
