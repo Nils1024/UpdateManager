@@ -11,21 +11,23 @@ use crate::comm::session::Session;
 use crate::util;
 use crate::util::config::get_config;
 
-pub fn connect() {
-    if !util::config::does_config_exists() {
-        get_config();
+pub fn connect() -> bool {
+    let addr = format!(
+        "{}:{}",
+        get_config()
+            .get(util::constants::CONFIG_ADDRESS_KEY)
+            .unwrap_or(&util::constants::STD_ADDRESS.to_string()),
+        get_config()
+            .get(util::constants::CONFIG_PORT_KEY)
+            .unwrap_or(&util::constants::STD_PORT.to_string())
+    );
 
-        if !util::config::does_config_exists() {
-            eprintln!("Failed to create config file");
-            return;
-        }
-    }
+    let stream = match TcpStream::connect(addr) {
+        Ok(stream) => stream,
+        Err(_) => return false,
+    };
 
-    let conn = Conn::new(
-        TcpStream::connect(
-            format!("{}:{}",
-                    get_config().get(util::constants::CONFIG_ADDRESS_KEY).unwrap_or(&util::constants::STD_ADDRESS.to_string()),
-                    get_config().get(util::constants::CONFIG_PORT_KEY).unwrap_or(&util::constants::STD_PORT.to_string()))).unwrap());
+    let conn = Conn::new(stream);
 
     let session = Session {
         conn: conn.clone(),
@@ -146,4 +148,6 @@ pub fn connect() {
     conn.wait_for_shutdown();
 
     conn.close();
+
+    true
 }
