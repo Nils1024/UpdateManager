@@ -1,11 +1,10 @@
-use std::{collections::VecDeque, fs, io::{ErrorKind, Read, Write}, net::{Shutdown, TcpStream}, sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}, time::Duration};
+use std::{collections::VecDeque, env, fs, io::{ErrorKind, Read, Write}, net::{Shutdown, TcpStream}, sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}, time::Duration};
 use std::fs::File;
 use std::io::BufReader;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::{LockResult, MutexGuard};
 use json::object;
-use crate::comm::conn_event;
 use crate::comm::conn_event::ConnEvent;
 use crate::comm::conn_event::ConnEventType::MsgReceived;
 use crate::util::observer::observer::Publisher;
@@ -69,8 +68,13 @@ impl Conn {
 
         if let Ok(file) = File::open(path) {
             if let Ok(meta_data) = file.metadata() {
+                let base_path = env::current_dir().unwrap();
+                let absolute_file_path = fs::canonicalize(path).unwrap();
+                let relative_path = absolute_file_path.strip_prefix(&base_path)
+                    .unwrap_or(&absolute_file_path);
+
                 let meta_data_json = object! {
-                    "name": path.file_name().unwrap().to_str().unwrap(),
+                    "name": relative_path.to_str().unwrap().replace("\\", "/"),
                     "size": meta_data.len(),
                     "is_app": meta_data.permissions().mode() & 0o111 != 0
                 };
@@ -104,7 +108,7 @@ impl Conn {
         }
     }
 
-    pub fn events(&self) -> LockResult<MutexGuard<'_, Publisher<conn_event::ConnEvent>>> {
+    pub fn events(&self) -> LockResult<MutexGuard<'_, Publisher<ConnEvent>>> {
         self.publisher.lock()
     }
 
