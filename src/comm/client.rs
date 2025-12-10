@@ -1,3 +1,4 @@
+use std::fs;
 use std::fs::{File, Permissions};
 use std::io::{BufWriter, Write};
 use std::net::TcpStream;
@@ -60,9 +61,7 @@ pub fn connect() -> bool {
     });
 
     if let Ok(mut publisher) = conn.events() {
-        publisher.subscribe(ConnEventType::MsgReceived, move |mut event| {
-            println!("Message received: {:?}", event.payload);
-
+        publisher.subscribe(ConnEventType::MsgReceived, move |event| {
             if let Ok(mut current_session) = session_ref.lock() {
                 if current_session.state == ConnState::Connected {
                     let hash = util::hash::get_dir_hash(Path::new("./"));
@@ -86,12 +85,28 @@ pub fn connect() -> bool {
                                 current_file_transfer.buffer = current_file_transfer.buffer.split_off(zero_index + 1);
                                 current_file_transfer.received = current_file_transfer.buffer.len();
 
-                                let file = File::create(&current_file_transfer.metadata.as_mut().unwrap().name).unwrap();
-                                let perms = current_file_transfer.metadata.as_mut().unwrap().permissions.clone();
-                                let _ = file.set_permissions(perms);
-                                current_file_transfer.file_stream = Some(BufWriter::new(file));
+                                let filename = &current_file_transfer.metadata.as_ref().unwrap().name;
+                                let path = Path::new(filename);
+
+                                if let Some(parent) = path.parent() {
+                                    if let Err(e) = fs::create_dir_all(parent) {
+                                        eprintln!("Failed to create folder: {}", e);
+                                    }
+                                }
+
+                                match File::create(path) {
+                                    Ok(file) => {
+                                        let perms = &current_file_transfer.metadata.as_ref().unwrap().permissions;
+                                        let _ = file.set_permissions(perms.clone());
+                                        current_file_transfer.file_stream = Some(BufWriter::new(file));
+                                    },
+                                    Err(e) => {
+                                        eprintln!("Failed to create file: {}", e);
+                                    }
+                                }
 
                                 is_meta_data.store(false, Ordering::Release);
+                                println!("Transferring File : {}", current_file_transfer.metadata.as_ref().unwrap().name);
                             }
                         }
                     }
