@@ -77,31 +77,38 @@ pub fn connect() -> bool {
                     let mut guard = file_transfer_data.lock().unwrap();
                     let current_file_transfer = guard.as_mut().unwrap();
 
+                    current_file_transfer.buffer.extend_from_slice(&event.payload);
+
                     if is_meta_data.load(Ordering::Acquire) {
-                        if let Some(meta_data) = get_meta_data(&event.payload) {
-                            current_file_transfer.metadata = Some(meta_data);
-                            is_meta_data.store(false, Ordering::Release);
-                            let zero_index = get_zero_byte_index(&event.payload).unwrap();
-                            current_file_transfer.buffer = event.payload.split_off(zero_index);
-                            current_file_transfer.received = current_file_transfer.buffer.len();
+                        if let Some(zero_index) = get_zero_byte_index(&current_file_transfer.buffer) {
+                            if let Some(meta_data) = get_meta_data(&current_file_transfer.buffer[..zero_index + 1]) {
+                                current_file_transfer.metadata = Some(meta_data);
+                                current_file_transfer.buffer = current_file_transfer.buffer.split_off(zero_index + 1);
+                                current_file_transfer.received = current_file_transfer.buffer.len();
 
-                            let file = File::create(&current_file_transfer.metadata.as_mut().unwrap().name).unwrap();
-                            let perms = current_file_transfer.metadata.as_mut().unwrap().permissions.clone();
-                            let _ = file.set_permissions(perms);
-                            current_file_transfer.file_stream = Some(BufWriter::new(file));
-                        } else {
-                            current_file_transfer.buffer.extend_from_slice(&event.payload);
+                                let file = File::create(&current_file_transfer.metadata.as_mut().unwrap().name).unwrap();
+                                let perms = current_file_transfer.metadata.as_mut().unwrap().permissions.clone();
+                                let _ = file.set_permissions(perms);
+                                current_file_transfer.file_stream = Some(BufWriter::new(file));
+
+                                is_meta_data.store(false, Ordering::Release);
+                            }
                         }
+                    }
 
-                    } else {
-                        current_file_transfer.received += event.payload.len();
-                        current_file_transfer.buffer.extend_from_slice(&event.payload);
+                    if !is_meta_data.load(Ordering::Acquire) {
+                        current_file_transfer.received = current_file_transfer.buffer.len();
 
-                        if current_file_transfer.received >= current_file_transfer.metadata.as_mut().unwrap().size {
-                            let _ = current_file_transfer.file_stream.as_mut().unwrap().write_all(&current_file_transfer.buffer[0..current_file_transfer.metadata.as_mut().unwrap().size]);
-                            let _ = current_file_transfer.file_stream.as_mut().unwrap().flush();
+                        let size = current_file_transfer.metadata.as_ref().unwrap().size;
 
-                            current_file_transfer.buffer = current_file_transfer.buffer.split_off(current_file_transfer.received);
+                        if current_file_transfer.received >= size {
+                            let stream = current_file_transfer.file_stream.as_mut().unwrap();
+                            let _ = stream.write_all(&current_file_transfer.buffer[0..size]);
+                            let _ = stream.flush();
+
+                            current_file_transfer.buffer = current_file_transfer.buffer.split_off(current_file_transfer.metadata.as_mut().unwrap().size);
+                            current_file_transfer.file_stream = None;
+                            current_file_transfer.received = 0;
                             is_meta_data.store(true, Ordering::Release);
                         }
                     }
@@ -136,9 +143,9 @@ fn get_meta_data(slice: &[u8]) -> Option<Metadata> {
                 name = name_val.to_string();
 
                 if is_app_val {
-                    permissions = Permissions::from_mode(0o111);
+                    permissions = Permissions::from_mode(0o777);
                 } else {
-                    permissions = Permissions::from_mode(0o000);
+                    permissions = Permissions::from_mode(0o666);
                 }
 
                 return Option::from(Metadata { size, name, permissions });
