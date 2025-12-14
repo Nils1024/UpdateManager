@@ -12,8 +12,10 @@ pub fn get_dir_hash(dir: &Path) -> String {
         if util::files::is_excluded(entry) {
             return;
         }
-        
-        hashes.borrow_mut().push(get_file_hash(entry));
+
+        if entry.path().is_file() {
+            hashes.borrow_mut().push(get_file_hash(entry));
+        }
     }).unwrap();
 
     let mut hashes = hashes.into_inner();
