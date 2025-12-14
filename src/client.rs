@@ -1,3 +1,4 @@
+use std::env;
 use std::io::stdin;
 use std::process::exit;
 use update_manager::{comm, util};
@@ -32,6 +33,19 @@ fn main() {
         println!("No program specified. Exiting");
         exit(1);
     } else {
-        util::process_handling::execute(get_config().get("program").unwrap(), &[""]);
+        let mut args: Vec<String> = Vec::new();
+
+        let mut counter = 0;
+        loop {
+            if get_config().contains_key(format!("arg{}", counter).as_str()) {
+                args.push(get_config()[format!("arg{}", counter).as_str()].to_string());
+                counter += 1;
+            } else {
+                break;
+            }
+        }
+
+        env::set_current_dir(env::current_exe().unwrap().parent().unwrap()).unwrap();
+        util::process_handling::execute(get_config().get("program").unwrap(), args);
     }
 }
