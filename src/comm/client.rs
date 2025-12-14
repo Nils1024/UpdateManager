@@ -1,5 +1,5 @@
 use std::cmp::min;
-use std::fs;
+use std::{env, fs};
 use std::fs::{File, Permissions};
 use std::io::{BufWriter, Write};
 use std::net::TcpStream;
@@ -65,7 +65,9 @@ pub fn connect() -> bool {
         publisher.subscribe(ConnEventType::MsgReceived, move |event| {
             if let Ok(mut current_session) = session_ref.lock() {
                 if current_session.state == ConnState::Connected {
-                    let hash = util::hash::get_dir_hash(Path::new("./"));
+                    let exe_dir = env::current_exe().unwrap();
+                    let hash_dir = exe_dir.parent().unwrap();
+                    let hash = util::hash::get_dir_hash(hash_dir);
 
                     if String::from_utf8_lossy(&*event.payload) != hash {
                         event.source.send_msg_string(hash);
