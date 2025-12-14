@@ -1,4 +1,4 @@
-use std::{env, fs, thread};
+use std::{env, thread};
 use std::net::{TcpListener};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
