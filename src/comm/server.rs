@@ -52,8 +52,10 @@ impl Server {
                                 current_session.change_state(ConnState::Update);
 
                                 let exe_dir = env::current_exe().unwrap();
+                                let mut update_dir = exe_dir.parent().unwrap().to_path_buf();
+                                update_dir.push("updates");
 
-                                util::files::walk_file_tree(exe_dir.parent().unwrap(), &|entry| {
+                                util::files::walk_file_tree(&update_dir, &|entry| {
                                     if util::files::is_excluded(entry) {
                                         return
                                     }
