@@ -24,7 +24,7 @@ pub fn print_file_name(file: &DirEntry) {
 
 pub fn is_excluded(entry: &DirEntry) -> bool {
     if let Some(name) = entry.path().file_name().and_then(|s| s.to_str()) {
-        if name == "upman.json" || name == ".DS_Store" {
+        if name == "upman.json" || name == ".DS_Store" || name == "server.pid" {
             return true
         }
     }
