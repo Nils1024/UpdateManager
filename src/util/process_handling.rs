@@ -56,7 +56,7 @@ pub fn is_process_running(description: &str) -> bool {
     }
 }
 
-pub fn execute(exe: &str, args: &[&str]) -> Error {
+pub fn execute(exe: &str, args: Vec<String>) -> Error {
     Command::new(exe).args(args).exec()
 }
 
