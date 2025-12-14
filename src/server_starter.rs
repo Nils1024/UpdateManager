@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, fs};
 use update_manager::comm::server::{Server};
 use update_manager::util;
 use update_manager::util::config::get_config;
@@ -27,7 +27,24 @@ fn start_server() {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    // let options: Vec<String> = Vec::new();
+
+    let exe_dir = env::current_exe().unwrap();
+    let mut update_dir = exe_dir.parent().unwrap().to_path_buf();
+    update_dir.push("updates");
+
+    if !update_dir.exists() {
+        if let Err(e) = fs::create_dir_all(&update_dir) {
+            eprintln!("Failed to create folder: {}", e);
+        }
+
+        println!("Created the updates folder. Put your files in there and restart the app.");
+        return;
+    }
+
+    if update_dir.read_dir().unwrap().next().is_none() {
+        println!("Updates directory is empty. Add your files, you want to distribute there.");
+        return;
+    }
 
     if args.len() == 2 {
         for option in args.iter() {
@@ -38,7 +55,7 @@ fn main() {
             } else if opt_lower == util::constants::ARG_START_SERVER_PROCESS {
                 new_server_with_process();
             } else if opt_lower == util::constants::ARG_STOP_SERVER_PROCESS {
-                start_server()
+                stop_server_process();
             } else if opt_lower == util::constants::ARG_START_SERVER {
                 start_server()
             }
