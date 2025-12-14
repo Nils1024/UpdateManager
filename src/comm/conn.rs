@@ -68,7 +68,8 @@ impl Conn {
 
         if let Ok(file) = File::open(path) {
             if let Ok(meta_data) = file.metadata() {
-                let base_path = env::current_dir().unwrap();
+                let mut base_path = env::current_dir().unwrap();
+                base_path.push("updates");
                 let absolute_file_path = fs::canonicalize(path).unwrap();
                 let relative_path = absolute_file_path.strip_prefix(&base_path)
                     .unwrap_or(&absolute_file_path);

@@ -1,6 +1,5 @@
 use std::{env, thread};
 use std::net::{TcpListener};
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 use crate::comm::conn::Conn;
 use crate::comm::conn_event::{ConnEventType};
@@ -16,8 +15,12 @@ pub struct Server {
 
 impl Server {
     pub fn new(addr: String) -> Self {
+        let exe_dir = env::current_exe().unwrap();
+        let mut update_dir = exe_dir.parent().unwrap().to_path_buf();
+        update_dir.push("updates");
+
         Server {
-            dir_hash: util::hash::get_dir_hash(Path::new("./")),
+            dir_hash: util::hash::get_dir_hash(&update_dir),
             socket: TcpListener::bind(addr).unwrap(),
             sessions: Vec::new()
         }
