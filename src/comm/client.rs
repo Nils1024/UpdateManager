@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::fs;
 use std::fs::{File, Permissions};
 use std::io::{BufWriter, Write};
@@ -78,53 +79,73 @@ pub fn connect() -> bool {
 
                     current_file_transfer.buffer.extend_from_slice(&event.payload);
 
-                    if is_meta_data.load(Ordering::Acquire) {
-                        if let Some(zero_index) = get_zero_byte_index(&current_file_transfer.buffer) {
-                            if let Some(meta_data) = get_meta_data(&current_file_transfer.buffer[..zero_index + 1]) {
-                                current_file_transfer.metadata = Some(meta_data);
-                                current_file_transfer.buffer = current_file_transfer.buffer.split_off(zero_index + 1);
-                                current_file_transfer.received = current_file_transfer.buffer.len();
+                    loop {
+                        let mut made_progress = false;
 
-                                let filename = &current_file_transfer.metadata.as_ref().unwrap().name;
-                                let path = Path::new(filename);
+                        if is_meta_data.load(Ordering::Acquire) {
+                            if let Some(zero_index) = get_zero_byte_index(&current_file_transfer.buffer) {
+                                if let Some(meta_data) = get_meta_data(&current_file_transfer.buffer) {
+                                    current_file_transfer.metadata = Some(meta_data);
+                                    current_file_transfer.buffer.drain(0..=zero_index);
+                                    current_file_transfer.received = 0;
 
-                                if let Some(parent) = path.parent() {
-                                    if let Err(e) = fs::create_dir_all(parent) {
-                                        eprintln!("Failed to create folder: {}", e);
+                                    let filename = &current_file_transfer.metadata.as_ref().unwrap().name;
+                                    let path = Path::new(filename);
+
+                                    if let Some(parent) = path.parent() {
+                                        if let Err(e) = fs::create_dir_all(parent) {
+                                            eprintln!("Failed to create folder: {}", e);
+                                        }
                                     }
-                                }
 
-                                match File::create(path) {
-                                    Ok(file) => {
-                                        let perms = &current_file_transfer.metadata.as_ref().unwrap().permissions;
-                                        let _ = file.set_permissions(perms.clone());
-                                        current_file_transfer.file_stream = Some(BufWriter::new(file));
-                                    },
-                                    Err(e) => {
-                                        eprintln!("Failed to create file: {}", e);
+                                    match File::create(path) {
+                                        Ok(file) => {
+                                            let perms = &current_file_transfer.metadata.as_ref().unwrap().permissions;
+                                            let _ = file.set_permissions(perms.clone());
+                                            current_file_transfer.file_stream = Some(BufWriter::new(file));
+                                        },
+                                        Err(e) => {
+                                            eprintln!("Failed to create file: {}", e);
+                                        }
                                     }
-                                }
 
-                                is_meta_data.store(false, Ordering::Release);
-                                println!("Transferring File : {}", current_file_transfer.metadata.as_ref().unwrap().name);
+                                    is_meta_data.store(false, Ordering::Release);
+                                    println!("Transferring File : {}", current_file_transfer.metadata.as_ref().unwrap().name);
+
+                                    made_progress = true;
+                                }
                             }
                         }
-                    }
 
-                    if !is_meta_data.load(Ordering::Acquire) {
-                        current_file_transfer.received = current_file_transfer.buffer.len();
+                        if !is_meta_data.load(Ordering::Acquire) {
+                            if !current_file_transfer.buffer.is_empty() && current_file_transfer.file_stream.is_some() {
+                                let total_size = current_file_transfer.metadata.as_ref().unwrap().size;
+                                let written = current_file_transfer.received;
+                                let bytes_remaining = total_size - written;
+                                let bytes_to_write = min(current_file_transfer.buffer.len(), bytes_remaining);
 
-                        let size = current_file_transfer.metadata.as_ref().unwrap().size;
+                                if bytes_to_write > 0 {
+                                    let stream = current_file_transfer.file_stream.as_mut().unwrap();
+                                    let _ = stream.write_all(&current_file_transfer.buffer[0..bytes_to_write]);
 
-                        if current_file_transfer.received >= size {
-                            let stream = current_file_transfer.file_stream.as_mut().unwrap();
-                            let _ = stream.write_all(&current_file_transfer.buffer[0..size]);
-                            let _ = stream.flush();
+                                    current_file_transfer.received += bytes_to_write;
+                                    current_file_transfer.buffer.drain(0..bytes_to_write);
+                                    made_progress = true;
+                                }
 
-                            current_file_transfer.buffer = current_file_transfer.buffer.split_off(current_file_transfer.metadata.as_mut().unwrap().size);
-                            current_file_transfer.file_stream = None;
-                            current_file_transfer.received = 0;
-                            is_meta_data.store(true, Ordering::Release);
+                                if current_file_transfer.received >= total_size {
+                                    let stream = current_file_transfer.file_stream.as_mut().unwrap();
+                                    let _ = stream.flush();
+
+                                    current_file_transfer.file_stream = None;
+                                    current_file_transfer.received = 0;
+                                    is_meta_data.store(true, Ordering::Release);
+                                }
+                            }
+                        }
+
+                        if !made_progress {
+                            break;
                         }
                     }
                 }
