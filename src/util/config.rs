@@ -1,4 +1,4 @@
-use std::{env, fs, fs::{File}, io, path::Path};
+use std::{fs, fs::{File}, io, path::Path};
 use std::collections::HashMap;
 use std::io::{Write};
 use std::sync::OnceLock;
@@ -19,10 +19,8 @@ pub fn get_config() -> &'static HashMap<String, String> {
 
 fn init_config(config_map: &mut HashMap<String, String>) {
     let binding = get_config_name();
-    let exe_dir = env::current_exe().unwrap();
-    let path = exe_dir
-        .parent().unwrap()
-        .join(binding);
+    let exe_dir = util::constants::get_exe_dir();
+    let path = exe_dir.join(binding);
 
     if does_config_exists() {
         let config = read_config(&path);
@@ -40,10 +38,8 @@ fn init_config(config_map: &mut HashMap<String, String>) {
 
 pub fn does_config_exists() -> bool {
     let binding = get_config_name();
-    let exe_dir = env::current_exe().unwrap();
-    let path = exe_dir
-        .parent().unwrap()
-        .join(binding);
+    let path = util::constants::get_exe_dir().join(binding);
+
     path.exists()
 }
 

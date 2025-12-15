@@ -1,8 +1,12 @@
+use std::env;
+use std::path::PathBuf;
+
 pub static PROGRAM_NAME: &str = "upman";
 pub static CONFIG_FILE_EXTENSION: &str = ".json";
 /// File extension for files storing a process id
 pub static PID_FILE_EXTENSION: &str = ".pid";
 pub static SERVER_PROCESS_DESCRIPTION: &str = "server";
+pub static UPDATES_FOLDER_NAME: &str = "updates";
 
 // ----- Standard configurations -----
 
@@ -21,6 +25,9 @@ pub static CONFIG_ADDRESS_KEY: &str = "address";
 // ----- Communication constants -----
 
 pub static GREETING_MSG: &str = "ClientHello\n";
+pub static FILE_NAME_KEY: &str = "name";
+pub static FILE_SIZE_KEY: &str = "size";
+pub static FILE_IS_EXECUTABLE_KEY: &str = "is_app";
 
 // ----- Commands for killing processes -----
 
@@ -44,3 +51,10 @@ pub static ARG_STOP_SERVER_PROCESS: &str = "stop";
 pub static ARG_START_SERVER: &str = "start-server";
 
 // ----- Error messages -----
+
+// ----- Runtime Constants -----
+
+pub fn get_exe_dir() -> PathBuf {
+    let exe_dir = env::current_exe().unwrap();
+    exe_dir.parent().unwrap().to_path_buf()
+}

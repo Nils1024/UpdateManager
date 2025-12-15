@@ -1,4 +1,5 @@
 use std::{collections::VecDeque, env, fs, io::{ErrorKind, Read, Write}, net::{Shutdown, TcpStream}, sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}, time::Duration};
+use std::fmt::format;
 use std::fs::File;
 use std::io::BufReader;
 use std::os::unix::fs::PermissionsExt;
@@ -7,6 +8,7 @@ use std::sync::{LockResult, MutexGuard};
 use json::object;
 use crate::comm::conn_event::ConnEvent;
 use crate::comm::conn_event::ConnEventType::MsgReceived;
+use crate::util;
 use crate::util::observer::observer::Publisher;
 
 #[derive(Clone)]
@@ -69,11 +71,11 @@ impl Conn {
         if let Ok(file) = File::open(path) {
             if let Ok(meta_data) = file.metadata() {
                 let mut base_path = env::current_dir().unwrap();
-                base_path.push("updates");
+                base_path.push(util::constants::UPDATES_FOLDER_NAME);
                 let absolute_file_path = fs::canonicalize(path).unwrap();
                 let relative_path = absolute_file_path.strip_prefix(&base_path)
                     .unwrap_or(&absolute_file_path);
-
+                
                 let meta_data_json = object! {
                     "name": relative_path.to_str().unwrap().replace("\\", "/"),
                     "size": meta_data.len(),

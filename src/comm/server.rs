@@ -47,16 +47,13 @@ impl Server {
 
             if let Ok(mut publisher) = new_conn.events() {
                 publisher.subscribe(ConnEventType::MsgReceived, move |event| {
-                    println!("Message received: {:?}", event.payload);
-
                     if let Ok(mut current_session) = session_for_callback.lock() {
                         if current_session.state == ConnState::HandshakeCompleted {
                             if String::from_utf8_lossy(&*event.payload) != hash.to_string() {
                                 current_session.change_state(ConnState::Update);
-
-                                let exe_dir = env::current_exe().unwrap();
-                                let mut update_dir = exe_dir.parent().unwrap().to_path_buf();
-                                update_dir.push("updates");
+                                
+                                let mut update_dir = util::constants::get_exe_dir();
+                                update_dir.push(util::constants::UPDATES_FOLDER_NAME);
 
                                 util::files::walk_file_tree(&update_dir, &|entry| {
                                     if util::files::is_excluded(entry) {
@@ -81,6 +78,8 @@ impl Server {
                         if String::from_utf8_lossy(&*event.payload) == util::constants::GREETING_MSG {
                             current_session.change_state(ConnState::HandshakeCompleted);
                             event.source.send_msg_string(hash.to_string());
+                        } else {
+                            event.source.close();
                         }
                     }
                 });

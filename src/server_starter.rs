@@ -27,10 +27,9 @@ fn start_server() {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-
-    let exe_dir = env::current_exe().unwrap();
-    let mut update_dir = exe_dir.parent().unwrap().to_path_buf();
-    update_dir.push("updates");
+    
+    let mut update_dir = util::constants::get_exe_dir();
+    update_dir.push(util::constants::UPDATES_FOLDER_NAME);
 
     if !update_dir.exists() {
         if let Err(e) = fs::create_dir_all(&update_dir) {
