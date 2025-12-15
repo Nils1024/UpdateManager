@@ -174,9 +174,9 @@ fn get_meta_data(slice: &[u8]) -> Option<Metadata> {
             let json = String::from_utf8_lossy(&slice[..zero_byte_index]);
 
             if let Ok(meta_data) = json::parse(&json)
-            && let Some(name_val) = meta_data["name"].as_str()
-            && let Some(size_val) = meta_data["size"].as_usize()
-            && let Some(is_app_val) = meta_data["is_app"].as_bool() {
+            && let Some(name_val) = meta_data[util::constants::FILE_NAME_KEY].as_str()
+            && let Some(size_val) = meta_data[util::constants::FILE_SIZE_KEY].as_usize()
+            && let Some(is_app_val) = meta_data[util::constants::FILE_IS_EXECUTABLE_KEY].as_bool() {
                 size = size_val;
                 name = name_val.to_string();
 
