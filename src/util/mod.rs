@@ -6,3 +6,4 @@ pub mod process_handling;
 pub mod cli;
 pub mod observer;
 pub mod tui;
+pub mod resource_bundle;
