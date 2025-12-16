@@ -13,7 +13,7 @@ fn main() {
             eprintln!("Failed to create config file");
             return;
         } else {
-            println!("{}\n{}", 
+            println!("{}\n{}",
                      resource_bundle::get_string(util::constants::RBC_CONFIG_CREATED),
                      resource_bundle::get_string(util::constants::RBC_CONTINUE));
             let mut input = String::new();
@@ -28,9 +28,11 @@ fn main() {
     let connection_result = comm::client::connect();
 
     if !connection_result {
-        eprintln!("{}\n{}", 
+        eprintln!("{}\n{}",
                   resource_bundle::get_string(util::constants::RBC_CONNECTION_FAILED),
                   resource_bundle::get_string(util::constants::RBC_CONNECTION_FAILED_SOLUTION));
+        let mut input = String::new();
+        stdin().read_line(&mut input).expect("Did not enter a correct string");
         exit(1);
     }
 
