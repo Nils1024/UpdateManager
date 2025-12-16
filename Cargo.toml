@@ -23,6 +23,8 @@ ratatui = "0.29.0"
 color-eyre = "0.6.3"
 crossterm = "0.29.0"
 tui-input = "0.14.0"
+aes-gcm = "0.10.3"
+rand = "0.10.0-rc.5"
 
 [dev-dependencies]
 tempfile = "3.10"
