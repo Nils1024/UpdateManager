@@ -21,7 +21,6 @@ fn start_server() {
                 get_config().get(util::constants::CONFIG_PORT_KEY).unwrap()));
 
     println!("Server started at {}", get_config().get(util::constants::CONFIG_PORT_KEY).unwrap());
-    println!("Hash: {}", server.get_hash());
 
     server.start().expect("Server stopped");
 }
@@ -37,7 +36,7 @@ fn main() {
             eprintln!("Failed to create folder: {}", e);
         }
 
-        println!("{}{}\n{}", 
+        println!("{}{}\n{}",
                  resource_bundle::get_string(util::constants::RBC_UPDATES_CREATED),
                  resource_bundle::get_string(util::constants::RBC_UPDATES_CREATED_ADD_FILES),
                  update_dir.display());
@@ -69,8 +68,10 @@ fn main() {
     } else if args.len() == 1 {
         if util::process_handling::is_process_running(util::constants::SERVER_PROCESS_DESCRIPTION) {
             stop_server_process();
+            println!("Server stopped");
         } else {
             new_server_with_process();
+            println!("Server started at {}", get_config().get(util::constants::CONFIG_PORT_KEY).unwrap());
         }
     }
 }
