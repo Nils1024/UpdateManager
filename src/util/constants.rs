@@ -1,5 +1,6 @@
 use std::env;
 use std::path::PathBuf;
+use std::string::ToString;
 
 pub static PROGRAM_NAME: &str = "upman";
 pub static CONFIG_FILE_EXTENSION: &str = ".json";
@@ -51,6 +52,12 @@ pub static ARG_STOP_SERVER_PROCESS: &str = "stop";
 pub static ARG_START_SERVER: &str = "start-server";
 
 // ----- Error messages -----
+
+// ----- Resource bundle identifiers -----
+// RBC = Resource Bundle Constant
+
+pub static RBC_UPDATES_FOLDER_EMPTY: &str = "UpdatesFolderEmpty";
+pub static RBC_ADD_FILES_TO_UPDATES: &str = "AddFilesToUpdatesFolder";
 
 // ----- Runtime Constants -----
 
