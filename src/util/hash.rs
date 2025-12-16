@@ -25,6 +25,6 @@ pub fn get_dir_hash(dir: &Path) -> String {
 }
 
 /// Returns the hash of the file by reading its content
-fn get_file_hash(file: &DirEntry) -> String {
+pub fn get_file_hash(file: &DirEntry) -> String {
     sha256::digest(fs::read(file.path()).unwrap())
 }
