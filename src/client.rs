@@ -3,6 +3,7 @@ use std::io::stdin;
 use std::process::exit;
 use update_manager::{comm, util};
 use update_manager::util::config::get_config;
+use update_manager::util::resource_bundle::resource_bundle;
 
 fn main() {
     if !util::config::does_config_exists() {
@@ -12,7 +13,9 @@ fn main() {
             eprintln!("Failed to create config file");
             return;
         } else {
-            println!("Config file created. Would you like to continue? [y/n]");
+            println!("{}\n{}", 
+                     resource_bundle::get_string(util::constants::RBC_CONFIG_CREATED),
+                     resource_bundle::get_string(util::constants::RBC_CONTINUE));
             let mut input = String::new();
             stdin().read_line(&mut input).expect("Did not enter a correct string");
 
@@ -25,7 +28,9 @@ fn main() {
     let connection_result = comm::client::connect();
 
     if !connection_result {
-        eprintln!("Failed to connect to server. Make sure the server is running or you configured the correct address in the upman.json");
+        eprintln!("{}\n{}", 
+                  resource_bundle::get_string(util::constants::RBC_CONNECTION_FAILED),
+                  resource_bundle::get_string(util::constants::RBC_CONNECTION_FAILED_SOLUTION));
         exit(1);
     }
 
@@ -37,8 +42,10 @@ fn main() {
 
         let mut counter = 0;
         loop {
-            if get_config().contains_key(format!("arg{}", counter).as_str()) {
-                args.push(get_config()[format!("arg{}", counter).as_str()].to_string());
+            let arg_key = format!("arg{}", counter);
+
+            if get_config().contains_key(&arg_key) {
+                args.push(get_config()[&arg_key].to_string());
                 counter += 1;
             } else {
                 break;
@@ -46,6 +53,6 @@ fn main() {
         }
 
         env::set_current_dir(env::current_exe().unwrap().parent().unwrap()).unwrap();
-        util::process_handling::execute(get_config().get("program").unwrap(), args);
+        util::process_handling::execute(get_config().get(util::constants::CONFIG_PROGRAM_KEY).unwrap(), args);
     }
 }

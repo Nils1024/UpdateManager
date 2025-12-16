@@ -2,6 +2,7 @@ use std::{env, fs};
 use update_manager::comm::server::{Server};
 use update_manager::util;
 use update_manager::util::config::get_config;
+use update_manager::util::resource_bundle::resource_bundle;
 
 fn new_server_with_process() {
     util::process_handling::start_new_process(env::current_exe().unwrap(),
@@ -36,15 +37,17 @@ fn main() {
             eprintln!("Failed to create folder: {}", e);
         }
 
-        println!("Created the updates folder under: {}\n\
-        Put your files in there and restart the app.", update_dir.display());
+        println!("{}{}\n{}", 
+                 resource_bundle::get_string(util::constants::RBC_UPDATES_CREATED),
+                 resource_bundle::get_string(util::constants::RBC_UPDATES_CREATED_ADD_FILES),
+                 update_dir.display());
         return;
     }
 
     if update_dir.read_dir().unwrap().next().is_none() {
         println!("{}\n{}{}",
-                 util::resource_bundle::resource_bundle::get_string(util::constants::RBC_UPDATES_FOLDER_EMPTY),
-                 util::resource_bundle::resource_bundle::get_string(util::constants::RBC_ADD_FILES_TO_UPDATES),
+                 resource_bundle::get_string(util::constants::RBC_UPDATES_FOLDER_EMPTY),
+                 resource_bundle::get_string(util::constants::RBC_ADD_FILES_TO_UPDATES),
                  update_dir.display());
         return;
     }

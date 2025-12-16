@@ -1,6 +1,5 @@
 use std::env;
 use std::path::PathBuf;
-use std::string::ToString;
 
 pub static PROGRAM_NAME: &str = "upman";
 pub static CONFIG_FILE_EXTENSION: &str = ".json";
@@ -22,6 +21,7 @@ pub static STD_SERVER_ADDRESS: &str = "0.0.0.0";
 
 pub static CONFIG_PORT_KEY: &str = "port";
 pub static CONFIG_ADDRESS_KEY: &str = "address";
+pub static CONFIG_PROGRAM_KEY: &str = "program";
 
 // ----- Communication constants -----
 
@@ -58,6 +58,12 @@ pub static ARG_START_SERVER: &str = "start-server";
 
 pub static RBC_UPDATES_FOLDER_EMPTY: &str = "UpdatesFolderEmpty";
 pub static RBC_ADD_FILES_TO_UPDATES: &str = "AddFilesToUpdatesFolder";
+pub static RBC_UPDATES_CREATED: &str = "UpdatesCreated";
+pub static RBC_UPDATES_CREATED_ADD_FILES: &str = "AddFilesToUpdatesAddFiles";
+pub static RBC_CONFIG_CREATED: &str = "ConfigCreated";
+pub static RBC_CONTINUE: &str = "Continue";
+pub static RBC_CONNECTION_FAILED: &str = "ConnectionFailed";
+pub static RBC_CONNECTION_FAILED_SOLUTION: &str = "ConnectionFailedSolution";
 
 // ----- Runtime Constants -----
 
