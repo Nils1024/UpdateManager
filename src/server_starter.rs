@@ -36,12 +36,16 @@ fn main() {
             eprintln!("Failed to create folder: {}", e);
         }
 
-        println!("Created the updates folder. Put your files in there and restart the app.");
+        println!("Created the updates folder under: {}\n\
+        Put your files in there and restart the app.", update_dir.display());
         return;
     }
 
     if update_dir.read_dir().unwrap().next().is_none() {
-        println!("Updates directory is empty. Add your files, you want to distribute there.");
+        println!("{}\n{}{}",
+                 util::resource_bundle::resource_bundle::get_string(util::constants::RBC_UPDATES_FOLDER_EMPTY),
+                 util::resource_bundle::resource_bundle::get_string(util::constants::RBC_ADD_FILES_TO_UPDATES),
+                 update_dir.display());
         return;
     }
 
