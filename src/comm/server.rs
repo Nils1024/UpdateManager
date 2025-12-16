@@ -1,26 +1,27 @@
-use std::{env, thread};
+use std::{env, fs};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::net::{TcpListener};
+use std::path::{PathBuf};
 use std::sync::{Arc, Mutex};
-use crate::comm::conn::Conn;
+use crate::comm::conn::{new_thread_for_closing_conn, Conn};
 use crate::comm::conn_event::{ConnEventType};
 use crate::{util};
 use crate::comm::conn_state::ConnState;
+use crate::comm::protocol::{get_different_files, send_greeting_answer};
 use crate::comm::session::Session;
+use crate::util::files::is_excluded;
 
 pub struct Server {
-    dir_hash: String,
+    hashes: HashMap<String, String>,
     socket: TcpListener,
     sessions: Vec<Arc<Mutex<Session>>>
 }
 
 impl Server {
     pub fn new(addr: String) -> Self {
-        let exe_dir = env::current_exe().unwrap();
-        let mut update_dir = exe_dir.parent().unwrap().to_path_buf();
-        update_dir.push("updates");
-
         Server {
-            dir_hash: util::hash::get_dir_hash(&update_dir),
+            hashes: Self::get_file_hashes(Self::get_updates_folder()),
             socket: TcpListener::bind(addr).unwrap(),
             sessions: Vec::new()
         }
@@ -33,11 +34,13 @@ impl Server {
 
             println!("New client: {}", new_conn.get_address());
 
-            let hash = self.get_hash();
+            let hashes = self.get_hashes();
 
             let session = Session {
                 conn: new_conn.clone(),
                 state: ConnState::Connected,
+                nonce: 0,
+                buffer: Vec::new()
             };
 
             let session_ref = Arc::new(Mutex::new(session));
@@ -48,38 +51,40 @@ impl Server {
             if let Ok(mut publisher) = new_conn.events() {
                 publisher.subscribe(ConnEventType::MsgReceived, move |event| {
                     if let Ok(mut current_session) = session_for_callback.lock() {
-                        if current_session.state == ConnState::HandshakeCompleted {
-                            if String::from_utf8_lossy(&*event.payload) != hash.to_string() {
-                                current_session.change_state(ConnState::Update);
-                                
-                                let mut update_dir = util::constants::get_exe_dir();
-                                update_dir.push(util::constants::UPDATES_FOLDER_NAME);
+                        match current_session.state {
+                            ConnState::Connected => {
+                                if let Ok(greeting) = String::from_utf8(Vec::from(&*event.payload))
+                                    && greeting == util::constants::GREETING_MSG {
+                                    current_session.change_state(ConnState::HandshakeCompleted);
 
-                                util::files::walk_file_tree(&update_dir, &|entry| {
-                                    if util::files::is_excluded(entry) {
-                                        return
+                                    let nonce = send_greeting_answer(event.source, hashes.clone());
+                                    current_session.nonce = nonce;
+                                } else {
+                                    current_session.change_state(ConnState::Finished);
+
+                                    new_thread_for_closing_conn(current_session.conn.clone());
+                                }
+                            }
+                            ConnState::HandshakeCompleted => {
+                                current_session.buffer.extend_from_slice(&event.payload);
+
+                                if let Some(different_files) = get_different_files(&current_session.buffer) {
+                                    let update_folder = Self::get_updates_folder();
+                                    for file in different_files {
+                                        let mut path = update_folder.clone();
+                                        path.push(file);
+
+                                        event.source.send_file(&*path);
                                     }
 
-                                    event.source.send_file(&*entry.path());
-                                }).expect("Failed to walk_file_tree");
-
-                                current_session.change_state(ConnState::Finished);
-
-                                let conn_clone = current_session.conn.clone();
-                                thread::spawn(move || {
-                                    conn_clone.wait_until_msg_queue_is_empty();
-                                    conn_clone.close();
-                                });
-                            } else {
-                                current_session.change_state(ConnState::Finished);
+                                    current_session.change_state(ConnState::Finished);
+                                    new_thread_for_closing_conn(current_session.conn.clone());
+                                }
                             }
-                        }
-
-                        if String::from_utf8_lossy(&*event.payload) == util::constants::GREETING_MSG {
-                            current_session.change_state(ConnState::HandshakeCompleted);
-                            event.source.send_msg_string(hash.to_string());
-                        } else {
-                            event.source.close();
+                            ConnState::Update => {}
+                            ConnState::Finished => {
+                                new_thread_for_closing_conn(current_session.conn.clone());
+                            }
                         }
                     }
                 });
@@ -89,7 +94,37 @@ impl Server {
         Ok(())
     }
 
-    pub fn get_hash(&self) -> String {
-        self.dir_hash.clone()
+    pub fn get_hashes(&self) -> HashMap<String, String> {
+        self.hashes.clone()
+    }
+
+    fn get_file_hashes(path: PathBuf) -> HashMap<String, String> {
+        let file_hashes: RefCell<HashMap<String, String>> = RefCell::new(HashMap::new());
+
+        util::files::walk_file_tree(path.as_path(), &|entry| {
+            if is_excluded(entry) {
+                return
+            }
+
+            let path = entry.path().to_str().unwrap().to_string();
+            let mut base_path = env::current_dir().unwrap();
+            base_path.push(util::constants::UPDATES_FOLDER_NAME);
+            let absolute_file_path = fs::canonicalize(path).unwrap();
+            let relative_path = absolute_file_path.strip_prefix(&base_path)
+                .unwrap_or(&absolute_file_path);
+            let hash = util::hash::get_file_hash(&entry.path());
+
+            file_hashes.borrow_mut().insert(relative_path.to_str().unwrap().to_string(), hash);
+        }).expect("failed to walk_file_tree");
+
+        file_hashes.into_inner()
+    }
+
+    fn get_updates_folder() -> PathBuf {
+        let exe_dir = env::current_exe().unwrap();
+        let mut update_dir = exe_dir.parent().unwrap().to_path_buf();
+        update_dir.push("updates");
+
+        update_dir
     }
 }

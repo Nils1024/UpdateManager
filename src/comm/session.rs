@@ -5,6 +5,8 @@ use crate::comm::conn_state::ConnState;
 pub struct Session {
     pub(crate) conn: Arc<Conn>,
     pub(crate) state: ConnState,
+    pub(crate) nonce: u32,
+    pub(crate) buffer: Vec<u8>,
 }
 
 impl Session {

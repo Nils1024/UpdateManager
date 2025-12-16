@@ -1,6 +1,6 @@
 use std::cell::RefCell;
-use std::fs::{self, DirEntry};
-use std::path::Path;
+use std::fs::{self};
+use std::path::{Path, PathBuf};
 use crate::util;
 use crate::util::files::walk_file_tree;
 
@@ -14,7 +14,7 @@ pub fn get_dir_hash(dir: &Path) -> String {
         }
 
         if entry.path().is_file() {
-            hashes.borrow_mut().push(get_file_hash(entry));
+            hashes.borrow_mut().push(get_file_hash(&entry.path()));
         }
     }).unwrap();
 
@@ -25,6 +25,6 @@ pub fn get_dir_hash(dir: &Path) -> String {
 }
 
 /// Returns the hash of the file by reading its content
-pub fn get_file_hash(file: &DirEntry) -> String {
-    sha256::digest(fs::read(file.path()).unwrap())
+pub fn get_file_hash(file: &PathBuf) -> String {
+    sha256::digest(fs::read(file).unwrap())
 }

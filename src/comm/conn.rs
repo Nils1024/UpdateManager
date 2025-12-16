@@ -1,5 +1,4 @@
 use std::{collections::VecDeque, env, fs, io::{ErrorKind, Read, Write}, net::{Shutdown, TcpStream}, sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}, time::Duration};
-use std::fmt::format;
 use std::fs::File;
 use std::io::BufReader;
 use std::os::unix::fs::PermissionsExt;
@@ -82,11 +81,13 @@ impl Conn {
                     "is_app": meta_data.permissions().mode() & 0o111 != 0
                 };
 
-                let mut bytes = meta_data_json.to_string().into_bytes();
-                bytes.push(0);
-                queue.push_back(bytes);
+                let mut meta_data_bytes = meta_data_json.to_string().into_bytes();
+                meta_data_bytes.push(0);
+                queue.push_back(meta_data_bytes);
 
-                queue.push_back(fs::read(path).unwrap());
+                let file_bytes = fs::read(path).unwrap();
+
+                queue.push_back(file_bytes);
             }
         }
 
@@ -221,4 +222,11 @@ impl Conn {
             }
         }
     }
+}
+
+pub fn new_thread_for_closing_conn(conn: Arc<Conn>) {
+    thread::spawn(move || {
+        conn.wait_until_msg_queue_is_empty();
+        conn.close();
+    });
 }
