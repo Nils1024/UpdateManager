@@ -13,6 +13,7 @@ use crate::comm::protocol::{get_file_meta_data, get_initial_meta_data, get_zero_
 use crate::comm::session::Session;
 use crate::util;
 use crate::util::config::get_config;
+use crate::util::constants::get_exe_dir;
 
 pub fn connect() -> bool {
     let addr = format!(
@@ -53,8 +54,6 @@ pub fn connect() -> bool {
     if let Ok(mut publisher) = conn.events() {
         publisher.subscribe(ConnEventType::MsgReceived, move |event| {
             if let Ok(mut current_session) = session_ref.lock() {
-                println!("message received: {:?}", event.payload);
-
                 match current_session.state {
                     ConnState::Connected => {
                         current_session.buffer.extend_from_slice(&event.payload);
@@ -64,9 +63,10 @@ pub fn connect() -> bool {
 
                             let mut different_files: Vec<String> = Vec::new();
                             for path in init_meta_data.hashes.keys() {
-                                let exe_dir = util::constants::get_exe_dir();
-                                let relative_path = Path::new(path);
-                                let full_path: PathBuf = exe_dir.join(relative_path);
+                                let exe_dir = get_exe_dir();
+                                let full_path: PathBuf = exe_dir.join(path);
+
+                                println!("Checking: {}", full_path.display());
 
                                 if !full_path.exists() ||
                                     util::hash::get_file_hash(&full_path) != init_meta_data.hashes.get(path).unwrap().to_string()
@@ -102,7 +102,9 @@ pub fn connect() -> bool {
                                         current_file_transfer.received = 0;
 
                                         let filename = &current_file_transfer.metadata.as_ref().unwrap().name;
-                                        let path = Path::new(filename);
+                                        let path = get_exe_dir().join(filename);
+
+                                        println!("Transferring File: {} to {}", filename, path.display());
 
                                         if let Some(parent) = path.parent() {
                                             if let Err(e) = fs::create_dir_all(parent) {
@@ -122,7 +124,6 @@ pub fn connect() -> bool {
                                         }
 
                                         is_meta_data.store(false, Ordering::Release);
-                                        println!("Transferring File : {}", current_file_transfer.metadata.as_ref().unwrap().name);
 
                                         made_progress = true;
                                     }
@@ -167,6 +168,7 @@ pub fn connect() -> bool {
         });
     }
 
+    println!("Init connection");
     conn.send_msg_string(util::constants::GREETING_MSG.to_owned());
 
     conn.wait_for_shutdown();
