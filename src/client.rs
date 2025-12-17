@@ -54,6 +54,7 @@ fn main() {
             }
         }
 
+        println!("Starting: {}", get_config().get(util::constants::CONFIG_PROGRAM_KEY).unwrap());
         env::set_current_dir(env::current_exe().unwrap().parent().unwrap()).unwrap();
         util::process_handling::execute(get_config().get(util::constants::CONFIG_PROGRAM_KEY).unwrap(), args);
     }
