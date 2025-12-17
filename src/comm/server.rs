@@ -10,6 +10,7 @@ use crate::{util};
 use crate::comm::conn_state::ConnState;
 use crate::comm::protocol::{get_different_files, send_greeting_answer};
 use crate::comm::session::Session;
+use crate::util::constants::get_exe_dir;
 use crate::util::files::is_excluded;
 
 pub struct Server {
@@ -107,7 +108,7 @@ impl Server {
             }
 
             let path = entry.path().to_str().unwrap().to_string();
-            let mut base_path = env::current_dir().unwrap();
+            let mut base_path = get_exe_dir();
             base_path.push(util::constants::UPDATES_FOLDER_NAME);
             let absolute_file_path = fs::canonicalize(path).unwrap();
             let relative_path = absolute_file_path.strip_prefix(&base_path)
@@ -121,8 +122,7 @@ impl Server {
     }
 
     fn get_updates_folder() -> PathBuf {
-        let exe_dir = env::current_exe().unwrap();
-        let mut update_dir = exe_dir.parent().unwrap().to_path_buf();
+        let mut update_dir = get_exe_dir();
         update_dir.push("updates");
 
         update_dir
