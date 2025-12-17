@@ -9,6 +9,7 @@ use std::process::{Command, Stdio};
 use crate::util::constants::{PID_FILE_EXTENSION, UNIX_KILL_COMMAND, UNIX_SIGKILL_ARG, UNIX_SIGTERM_ARG};
 #[cfg(target_os = "windows")]
 use crate::util::constants::{PID_FILE_EXTENSION, WIN_KILL_COMMAND};
+use crate::util::constants::get_exe_dir;
 
 unsafe extern "C" {
     fn kill(pid: i32, sig: i32) -> i32;
@@ -64,7 +65,7 @@ pub fn execute(exe: &str, args: Vec<String>) -> Error {
 /// the little endian (le) format
 fn create_pid_file(pid: u32, description: &str) {
     let file_name = get_pid_file_name(description);
-    let pid_file = File::create(file_name);
+    let pid_file = File::create(get_exe_dir().join(&file_name));
 
     if let Ok(mut pid_file) = pid_file {
         if let Ok(_) = pid_file.write_all(pid.to_le_bytes().as_ref()) {
@@ -76,14 +77,14 @@ fn create_pid_file(pid: u32, description: &str) {
 fn delete_pid_file(description: &str) -> bool {
     let file_name = get_pid_file_name(description);
 
-    fs::remove_file(file_name).is_ok()
+    fs::remove_file(get_exe_dir().join(&file_name)).is_ok()
 }
 
 /// Reads the first 4 bytes of the {description}.pid file in the little endian format.
 fn read_pid_file(description: &str) -> u32 {
     let file_name = get_pid_file_name(description);
 
-    if let Ok(mut pid_file) = File::open(file_name.clone()) {
+    if let Ok(mut pid_file) = File::open(get_exe_dir().join(&file_name)) {
         let mut buffer = [0u8; 4];
 
         match pid_file.read_exact(&mut buffer) {
