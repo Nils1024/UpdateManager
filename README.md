@@ -1,25 +1,19 @@
 # UpdateManager
-Server and client for distributing software by automatically updating it
+Server and client for distributing software with automatic updates.
 
-## Install (Server)
+## Installation & Usage (Server)
 
-1. Download the server executable
-2. Run the server. It creates all necessary files.
-3. Configure your server in the upman.json and put your files you want to distribute in the updates folder.
-4. Run the server
+1. Download the server executable.
+2. Run the server (it will create necessary files).
+3. Place all files you want to distribute in the ```updates``` folder.
+4. Run the server again to serve everything in the updates folder to the clients.
 
-## Install (Client)
+## Installation & Usage (Client)
 
-### Configure it by yourself
-
-1. Download the client executable
-2. Run the client. It creates all necessary files.
-3. Configure your client in the upman.json
-4. Run the client
-
-### Pre-configured
-1. Download the upman.json and client executable
-2. Run it
+1. Download the client executable. 
+2. Run the client (it will create necessary files). 
+3. Configure ```upman.json``` with your settings. 
+4. Run the client to receive updates and launch your program.
 
 ### Example Configuration
 
@@ -32,16 +26,12 @@ Server and client for distributing software by automatically updating it
   "arg1": "./explorer.jar"
 }
 ```
-With this configuration, the client would connect to the localhost server. After it received all files, it will run following command
+This configuration connects the client to a local server and runs the following command after all files are downloaded:
 
 ```bash
 java -jar ./explorer.jar
 ```
 
-## Usage (Server)
-
-### Example
-
-## Usage (Client)
-
-### Example
+## Example
+Click on the image to start the video: <br>
+[![Watch the example video](http://i3.ytimg.com/vi/xPc7W2W3aHU/hqdefault.jpg)](https://youtu.be/xPc7W2W3aHU)
