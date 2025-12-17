@@ -8,6 +8,7 @@ use json::object;
 use crate::comm::conn_event::ConnEvent;
 use crate::comm::conn_event::ConnEventType::MsgReceived;
 use crate::util;
+use crate::util::constants::get_exe_dir;
 use crate::util::observer::observer::Publisher;
 
 #[derive(Clone)]
@@ -69,8 +70,7 @@ impl Conn {
 
         if let Ok(file) = File::open(path) {
             if let Ok(meta_data) = file.metadata() {
-                let mut base_path = env::current_dir().unwrap();
-                base_path.push(util::constants::UPDATES_FOLDER_NAME);
+                let base_path = get_exe_dir().join(util::constants::UPDATES_FOLDER_NAME);
                 let absolute_file_path = fs::canonicalize(path).unwrap();
                 let relative_path = absolute_file_path.strip_prefix(&base_path)
                     .unwrap_or(&absolute_file_path);
@@ -208,8 +208,6 @@ impl Conn {
 
             while let Some(msg) = queue.pop_front() {
                 if let Ok(mut stream) = self.writer.lock() {
-                    println!("Sending: {:?}", msg);
-                    
                     if let Err(e) = stream.write_all(&*msg) {
                         eprintln!("Error writing to a stream: {e}");
                         return;
