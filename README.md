@@ -34,4 +34,4 @@ java -jar ./explorer.jar
 
 ## Example
 Click on the image to start the video: <br>
-[![Watch the example video](http://i3.ytimg.com/vi/xPc7W2W3aHU/hqdefault.jpg)](https://youtu.be/xPc7W2W3aHU)
+[![Watch the example video](http://i3.ytimg.com/vi/xPc7W2W3aHU/hqdefault.jpg)](https://hc-cdn.hel1.your-objectstorage.com/s/v3/eec2cac4be0db51f_updatemanager_-_example.mp4)
